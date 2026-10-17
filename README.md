@@ -15,7 +15,7 @@ dsh-mounts 是 DeepSeek Harness 的只读侧栏面板，将当前 profile 的挂
 技能出现在列表中，不代表本轮已加载。
 
 记忆库一栏由两部分组成：各工作区内名为 `memory` 的目录（`<工作区>/memory`、`.dsh/memory`、`.agents/memory`），
-以及 `memoryRoots` 配置的目录（默认为空）。两者都没有时，整栏省略。
+以及 `memoryRoots` 配置的目录（默认为空）。两者都没有时，该栏显示一行说明，不会隐藏。
 DSH 不读取该目录；DSH 自动注入的内容为各工作区的 `AGENTS.md` 与 `AGENTS.local.md`，
 归入「预规定」一栏。
 
@@ -29,7 +29,7 @@ does not use the network; installing it does not change the prompt the model rec
 to report what is configured, not whether it is active: an MCP row in the patch does not imply a
 running process, and a listed skill was not necessarily loaded this turn. The memory-library group
 combines named `memory` directories found inside each workspace with any directories listed in
-`memoryRoots` (empty by default), and is omitted when neither yields a library;
+`memoryRoots` (empty by default); an explanatory line is shown when neither yields a library;
 DSH does not read it, and what DSH injects are the `AGENTS.md` and `AGENTS.local.md` files
 of each workspace, reported in the first group. File contents are never read: the memory libraries are
 only `stat`-ed and skills contribute the description line from their frontmatter. Reading a file
@@ -70,6 +70,8 @@ The scope is read-only presentation.
 ```
 
 两图为示意，数据非实测。*Both figures are illustrative; the data is not measured.*
+
+未发现记忆库时，该栏显示一行说明，不隐藏。*When no memory store is found, the group shows an explanatory line instead of hiding.*
 
 ### 1.3 栏目与数据来源 · *Groups and Data Sources*
 
@@ -200,6 +202,7 @@ re-validated on the Host side.
 | 面板只读 | 不提供编辑、启停与删除 |
 | 内置预设只能看到名称 | 其定义不在 profile 补丁里，面板读不到，因此不能展开 |
 | 只识别名为 memory 的目录 | 不做模糊匹配；名字不同的记忆目录需要用 memoryRoots 指定 |
+| 记忆库默认不包含任何目录 | 只从工作区内的 memory/ 与 memoryRoots 发现；首次使用通常是空的，需要配置 |
 | 技能描述最多 1000 字 | 超出部分以省略号结尾 |
 | 工作区取最近更新的一个 | 可能不是当前会话所在的工作区 |
 | 不标示当前会话使用的预设 | 只列出已定义的预设，不判断哪一个正在生效 |
@@ -212,6 +215,7 @@ re-validated on the Host side.
 | Read-only | No editing, toggling, or deleting |
 | Built-in presets show names only | Their definitions are not in the profile patch, so the panel cannot read or expand them |
 | Only directories named memory are recognised | No fuzzy matching; use memoryRoots for differently named memory directories |
+| Memory libraries are empty by default | Discovered only from workspace memory/ directories and memoryRoots; a first run is usually empty until configured |
 | Skill descriptions are capped at 1000 characters | Longer ones end with an ellipsis |
 | The workspace is the most recently updated one | It may not be the workspace of the current session |
 | The preset in use by a session is not marked | Only defined presets are listed; which one is active is not determined |

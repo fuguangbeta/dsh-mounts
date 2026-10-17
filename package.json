@@ -1,6 +1,6 @@
 {
   "name": "dsh-mounts",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "private": true,
   "description": "Read-only panel listing the memory chain, skills, MCP servers, and Agent Presets mounted in this DSH profile.",
   "type": "module",

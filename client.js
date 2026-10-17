@@ -52,12 +52,14 @@ window.__ModuleLoader__.load({
       'detail.copied': '已复制到剪贴板',
       'detail.copyFailed': '复制失败：浏览器没有授予剪贴板权限',
       'detail.openFailed': '打开失败：系统默认程序没有接受这个文件',
-      'rules.empty': '项目链上没有 AGENTS.md / AGENTS.local.md',
-      'skills.empty': '没有发现技能',
+      'rules.empty': '未找到 AGENTS.md 或 AGENTS.local.md。',
+      'memory.empty': '未发现记忆库。',
+      'memory.emptyHint': '把记忆文件放在工作区的 memory/ 目录，或在插件配置里设置 memoryRoots。',
+      'skills.empty': '未发现技能。',
       'skills.project': '项目',
       'skills.custom': '自定义',
-      'mcp.empty': '这个 profile 没有 MCP 行',
-      'preset.empty': '这个 profile 没有额外 preset',
+      'mcp.empty': '未发现 MCP 服务器行。',
+      'preset.empty': '未发现预设。',
       'preset.builtinRow': '内置 preset（来自 bundle，不可展开）',
       'common.generated': '生成于',
     }
@@ -99,12 +101,14 @@ window.__ModuleLoader__.load({
       'detail.copied': 'Copied to clipboard',
       'detail.copyFailed': 'Copy failed: the browser denied clipboard access',
       'detail.openFailed': 'Open failed: the default application did not accept this file',
-      'rules.empty': 'No AGENTS.md / AGENTS.local.md on the project chain',
-      'skills.empty': 'No skills found',
+      'rules.empty': 'No AGENTS.md or AGENTS.local.md found.',
+      'memory.empty': 'No memory stores found.',
+      'memory.emptyHint': 'Put memory files in a workspace memory/ directory, or set memoryRoots in the plugin configuration.',
+      'skills.empty': 'No skills found.',
       'skills.project': 'Project',
       'skills.custom': 'Custom',
-      'mcp.empty': 'This profile declares no MCP row',
-      'preset.empty': 'This profile declares no extra preset',
+      'mcp.empty': 'No MCP server rows found.',
+      'preset.empty': 'No presets found.',
       'preset.builtinRow': 'Built-in preset (from the bundle, not expandable)',
       'common.generated': 'Generated',
     }
@@ -170,6 +174,7 @@ window.__ModuleLoader__.load({
 .dmp-item-meta{flex:none;font-size:11.5px;color:var(--dsw-alias-label-secondary);font-variant-numeric:tabular-nums;white-space:nowrap;text-align:right;max-width:220px;overflow:hidden;text-overflow:ellipsis;}
 .dmp-mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;}
 .dmp-empty{padding:12px 16px;font-size:12px;color:var(--dsw-alias-label-secondary);}
+.dmp-empty-hint{margin-top:2px;font-size:11px;line-height:1.6;color:var(--dsw-alias-label-secondary);}
 .dmp-warning{padding:8px 16px;font-size:11px;line-height:1.6;color:var(--dsw-alias-state-warn-primary);border-top:1px solid var(--dsw-alias-border-l1);}
 .dmp-foot{margin-top:18px;display:flex;flex-wrap:wrap;gap:6px 16px;font-size:11.5px;color:var(--dsw-alias-label-secondary);}
 `
@@ -739,84 +744,91 @@ window.__ModuleLoader__.load({
                 },
                 ruleRows.length ? ruleRows : h('div', { className: 'dmp-empty' }, t('rules.empty')),
               ),
-              memory.length
-                ? h(
-                    Block,
-                    {
-                      id: 'memory',
-                      title: t('section.memory'),
-                      count: String(t('memory.count'))
-                        .replace('%s', String(memory.length))
-                        .replace('%s', String(memoryFiles)),
-                      open: Boolean(openBlocks.memory),
-                      onToggle: () => toggleBlock('memory'),
-                    },
-                    h(
-                      React.Fragment,
-                      null,
-                      notice ? h('div', { className: 'dmp-open-notice' }, notice) : null,
-                      openError ? h('div', { className: 'dmp-open-error' }, openError) : null,
-                      memory.map((store) => {
-                        const bodyId = 'dmp-mem-' + store.group
-                        const open = Boolean(openStores[store.group])
-                        const countText = ' · ' + String(t('memory.files')).replace('%s', String(store.count))
-                        const foldedText =
-                          store.folded > 0
-                            ? ' ' + String(t('memory.folded')).replace('%s', String(store.folded))
-                            : ''
-                        return h(
-                          'div',
-                          { key: store.group },
-                          h(
-                            'button',
-                            {
-                              type: 'button',
-                              className: 'dmp-mem-head',
-                              title: (store.dirs || []).join('\n'),
-                              'aria-expanded': open,
-                              'aria-controls': bodyId,
-                              onClick: () => toggleStore(store.group),
-                            },
-                            h('span', { className: 'dmp-arrow', 'aria-hidden': true }, open ? '▾' : '▸'),
-                            h('b', null, store.group),
-                            h('span', { className: 'dmp-mem-count' }, countText + foldedText),
-                            store.latest
-                              ? h('span', { className: 'dmp-mem-latest' }, String(store.latest).slice(0, 10))
-                              : null,
-                          ),
-                          h(
+              h(
+                Block,
+                {
+                  id: 'memory',
+                  title: t('section.memory'),
+                  count: String(t('memory.count'))
+                    .replace('%s', String(memory.length))
+                    .replace('%s', String(memoryFiles)),
+                  open: Boolean(openBlocks.memory),
+                  onToggle: () => toggleBlock('memory'),
+                },
+                h(
+                  React.Fragment,
+                  null,
+                  memory.length
+                    ? [
+                        notice ? h('div', { className: 'dmp-open-notice' }, notice) : null,
+                        openError ? h('div', { className: 'dmp-open-error' }, openError) : null,
+                        memory.map((store) => {
+                          const bodyId = 'dmp-mem-' + store.group
+                          const open = Boolean(openStores[store.group])
+                          const countText = ' · ' + String(t('memory.files')).replace('%s', String(store.count))
+                          const foldedText =
+                            store.folded > 0
+                              ? ' ' + String(t('memory.folded')).replace('%s', String(store.folded))
+                              : ''
+                          return h(
                             'div',
-                            { id: bodyId, className: 'dmp-mem-body', hidden: !open },
-                            store.files.map((file) => {
-                              const target = joinPath(file.dir, file.name)
-                              return h(
-                                'div',
-                                { className: 'dmp-file', key: (file.dir || '') + '|' + file.name, title: target },
-                                h('span', { className: 'dmp-file-name' }, file.name),
-                                h(
-                                  'span',
-                                  { className: 'dmp-file-meta' },
-                                  bytes(file.bytes) + ' · ' + String(file.mtime).slice(0, 10),
-                                ),
-                                h(
-                                  'button',
-                                  {
-                                    type: 'button',
-                                    className: 'dmp-open-btn',
-                                    title: target,
-                                    onClick: () => openFile(target),
-                                  },
-                                  canOpen ? t('detail.open') : t('detail.copy'),
-                                ),
-                              )
-                            }),
-                          ),
-                        )
-                      }),
-                      warningLines(warningsFor('memoryRoots'), 'mem-warning-'),
-                    ),
-                  )
-                : null,
+                            { key: store.group },
+                            h(
+                              'button',
+                              {
+                                type: 'button',
+                                className: 'dmp-mem-head',
+                                title: (store.dirs || []).join('\n'),
+                                'aria-expanded': open,
+                                'aria-controls': bodyId,
+                                onClick: () => toggleStore(store.group),
+                              },
+                              h('span', { className: 'dmp-arrow', 'aria-hidden': true }, open ? '▾' : '▸'),
+                              h('b', null, store.group),
+                              h('span', { className: 'dmp-mem-count' }, countText + foldedText),
+                              store.latest
+                                ? h('span', { className: 'dmp-mem-latest' }, String(store.latest).slice(0, 10))
+                                : null,
+                            ),
+                            h(
+                              'div',
+                              { id: bodyId, className: 'dmp-mem-body', hidden: !open },
+                              store.files.map((file) => {
+                                const target = joinPath(file.dir, file.name)
+                                return h(
+                                  'div',
+                                  { className: 'dmp-file', key: (file.dir || '') + '|' + file.name, title: target },
+                                  h('span', { className: 'dmp-file-name' }, file.name),
+                                  h(
+                                    'span',
+                                    { className: 'dmp-file-meta' },
+                                    bytes(file.bytes) + ' · ' + String(file.mtime).slice(0, 10),
+                                  ),
+                                  h(
+                                    'button',
+                                    {
+                                      type: 'button',
+                                      className: 'dmp-open-btn',
+                                      title: target,
+                                      onClick: () => openFile(target),
+                                    },
+                                    canOpen ? t('detail.open') : t('detail.copy'),
+                                  ),
+                                )
+                              }),
+                            ),
+                          )
+                        }),
+                      ]
+                    : h(
+                        'div',
+                        { className: 'dmp-empty' },
+                        h('div', null, t('memory.empty')),
+                        h('div', { className: 'dmp-empty-hint' }, t('memory.emptyHint')),
+                      ),
+                  warningLines(warningsFor('memoryRoots'), 'mem-warning-'),
+                ),
+              ),
               h(
                 Block,
                 {
