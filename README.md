@@ -22,7 +22,7 @@ DSH 不读取该目录；DSH 自动注入的内容为各工作区的 `AGENTS.md`
 查看正文使用每行的「打开」，交由系统默认程序处理；该操作使用 DSH 内置的 Session Remote，
 不可用时降级为「复制路径」。功能范围限于只读呈现，不提供编辑、启停与删除。
 
-*This is a read-only sidebar panel for DeepSeek Harness. It presents the mounts of the current profile
+This is a read-only sidebar panel for DeepSeek Harness. It presents the mounts of the current profile
 in five groups on one page. It registers no tools, adds nothing to the context, writes no files, and
 does not use the network; installing it does not change the prompt the model receives. Its purpose is
 to report what is configured, not whether it is active: an MCP row in the patch does not imply a
@@ -32,7 +32,7 @@ DSH does not read it, and what DSH injects are the `AGENTS.md` and `AGENTS.local
 of each workspace, reported in the first group. File contents are never read: the memory libraries are
 only `stat`-ed and skills contribute the description line from their frontmatter. Reading a file
 is delegated to the system default application through DSH's Session Remote, with a copy-path fallback.
-The scope is read-only presentation.*
+The scope is read-only presentation.
 
 ---
 
@@ -98,6 +98,8 @@ The scope is read-only presentation.*
 | L3 | 点击条目 | 该条目自身的字段 |
 | L3+ | 点击记忆库的库标题 | 文件列表，每行可「打开」 |
 
+初始状态停留在 L1。展开内容仅涉及被展开条目自身的字段。
+
 | Level | Trigger | Content |
 |------|------|------|
 | L1 | Opening the panel | The five group titles and their counts |
@@ -105,8 +107,7 @@ The scope is read-only presentation.*
 | L3 | Clicking an entry | The fields of that entry |
 | L3+ | Clicking a memory-library title | The file list, each row openable |
 
-初始状态停留在 L1。展开内容仅涉及被展开条目自身的字段。
-*The initial state rests at L1. An expansion only ever shows the fields of the expanded entry itself.*
+The initial state rests at L1. An expansion only ever shows the fields of the expanded entry itself.
 
 ---
 
@@ -123,21 +124,21 @@ The scope is read-only presentation.*
 profile 的 `package.json` 与 `cordis.patch.yml` 由 `install_bundle` 维护。手工修改
 或于 profile 目录执行 pnpm 均不符合官方流程。
 
-*Creator mode (the `cordis` preset) is required, as it provides `plugin_manager`. Place the
+Creator mode (the `cordis` preset) is required, as it provides `plugin_manager`. Place the
 repository in any workspace, by clone or by GitHub's Download ZIP; npm is not involved. Call
 `install_bundle` with `target` set to the absolute path of this package, then inspect the
 returned `application` and `warnings`. The profile's `package.json` and
 `cordis.patch.yml` are maintained by `install_bundle`; editing them by hand, or running pnpm
-inside the profile directory, is outside the official procedure.*
+inside the profile directory, is outside the official procedure.
 
 ### 3.2 代码改动生效方式 · *Applying Code Changes*
 
 客户端依赖（`client.js`）改动通过硬刷新（Ctrl+Shift+R）生效。Host 侧依赖（`index.js`）
 改动需以 `plugin_manager` 将 `include:mounts-panel` 关→开，触发模块重新 import。
 
-*Client-side changes (`client.js`) take effect on a hard refresh (Ctrl+Shift+R). Host-side changes
+Client-side changes (`client.js`) take effect on a hard refresh (Ctrl+Shift+R). Host-side changes
 (`index.js`) require toggling `include:mounts-panel` off and on through `plugin_manager`
-so the module is imported again.*
+so the module is imported again.
 
 ---
 
@@ -162,8 +163,8 @@ so the module is imported again.*
 - *It returns no file contents: memory libraries are only `stat`-ed and skills contribute the
   frontmatter description.*
 
-*The "Open" action creates no endpoint; it uses DSH's existing Session Remote and the path is
-re-validated on the Host side.*
+The "Open" action creates no endpoint; it uses DSH's existing Session Remote and the path is
+re-validated on the Host side.
 
 ---
 
@@ -204,8 +205,8 @@ re-validated on the Host side.*
 读盘文本先做 `\r\n?` 到 `\n` 的规范化。CRLF 的 `SKILL.md` 会使 frontmatter 解析静默失败，
 description 退化为空字符串。
 
-*Text read from disk is normalised from `\r\n?` to `\n` first. A CRLF `SKILL.md` makes
-frontmatter parsing fail silently and the description degrade to an empty string.*
+Text read from disk is normalised from `\r\n?` to `\n` first. A CRLF `SKILL.md` makes
+frontmatter parsing fail silently and the description degrade to an empty string.
 
 ---
 
