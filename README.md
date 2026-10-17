@@ -9,7 +9,7 @@
 DeepSeek Harness 的只读侧栏面板，集中呈现当前 profile 的挂载内容。面板不注册工具，不注入上下文，
 不写文件，不发起网络请求。安装不改变模型所见的提示词。
 
-## 1 概述
+## 概述 · *Overview*
 
 面板将 profile 的挂载内容归为五类，同页呈现。用途限于确认配置内容，不判定其是否生效：
 补丁中存在 MCP 行，不代表对应进程正在运行；技能出现在列表中，不代表本轮已加载。
@@ -34,9 +34,11 @@ never read: the memory libraries are only `stat`-ed and skills contribute the de
 from their frontmatter. Reading a file is delegated to the system default application through DSH's
 Session Remote, with a copy-path fallback. The scope is read-only presentation.*
 
-## 2 界面
+---
 
-图 1　面板初始状态
+## 界面 · *Interface*
+
+面板初始状态：
 
 ```
 挂载清单  [只读]  [刷新]
@@ -49,7 +51,7 @@ Session Remote, with a copy-path fallback. The scope is read-only presentation.*
 ▸ 智能体预设 (5)
 ```
 
-图 2　记忆库展开至文件级
+记忆库展开至文件级：
 
 ```
 ▾ 记忆库 (6 个库 · 34 个文件)
@@ -63,7 +65,9 @@ Session Remote, with a copy-path fallback. The scope is read-only presentation.*
 
 两图为示意，数据非实测。
 
-## 3 内容来源
+---
+
+## 内容来源 · *Sources*
 
 | 栏 | 来源 | 展开后 |
 |------|------|------|
@@ -73,7 +77,7 @@ Session Remote, with a copy-path fallback. The scope is read-only presentation.*
 | MCP 服务器 | profile 补丁中的 `dsh-mcp-client` 行 | 补丁行 id、env 变量名、目标 |
 | 智能体预设 | profile 自定义预设，以及内置的 `standard`、`ptc`、`minimal`、`cordis` | 补丁行、标题 |
 
-## 4 层级与展开
+## 层级与展开 · *Hierarchy*
 
 | 层级 | 触发 | 内容 |
 |------|------|------|
@@ -84,7 +88,9 @@ Session Remote, with a copy-path fallback. The scope is read-only presentation.*
 
 初始状态停留在 L1。展开内容仅涉及被展开条目自身的字段。
 
-## 5 安装
+---
+
+## 安装 · *Installation*
 
 需要 Creator 模式（`cordis` preset），该预设提供 `plugin_manager`。
 
@@ -98,7 +104,9 @@ profile 的 `package.json` 与 `cordis.patch.yml` 由 `install_bundle` 维护。
 客户端改动通过硬刷新（Ctrl+Shift+R）生效。Host 侧（`index.js`）改动需以 `plugin_manager`
 将 `include:mounts-panel` 关→开，触发模块重新 import。
 
-## 6 安全模型
+---
+
+## 安全模型 · *Security Model*
 
 - 不写文件，不启动子进程，不发起出站请求。
 - 仅暴露一个 HTTP 端点 `GET /dsh-mounts/api`。
@@ -110,7 +118,9 @@ profile 的 `package.json` 与 `cordis.patch.yml` 由 `install_bundle` 维护。
 
 「打开」不新建端点，使用 DSH 现有的 Session Remote，路径由 Host 侧复核。
 
-## 7 已知限制
+---
+
+## 已知限制 · *Known Limitations*
 
 | 限制 | 原因 | 影响 |
 |------|------|------|
@@ -122,7 +132,9 @@ profile 的 `package.json` 与 `cordis.patch.yml` 由 `install_bundle` 维护。
 | 「打开」依赖 Session Remote | 不新建端点 | 不可用时降级为「复制路径」 |
 | 不标示当前预设 | 注册表仅存全局默认值 | 该列表不表示当前会话所用预设 |
 
-## 8 环境要求
+---
+
+## 环境要求 · *Requirements*
 
 | 项 | 要求 |
 |------|------|
@@ -136,7 +148,9 @@ profile 的 `package.json` 与 `cordis.patch.yml` 由 `install_bundle` 维护。
 DeepSeek Harness 0.2.1-rc.2 or later. Installation requires Creator mode; everyday use does not.
 Windows is verified; other platforms are untested. No third-party dependencies.
 
-## 9 常见问题
+---
+
+## 常见问题 · *Frequently Asked Questions*
 
 **安装后侧栏无「挂载清单」。**
 确认 `install_bundle` 返回的 `application` 为 `applied`。若已应用仍不可见，先行硬刷新
@@ -146,7 +160,7 @@ Windows is verified; other platforms are untested. No third-party dependencies.
 客户端改动需硬刷新。Host 侧改动需以 `plugin_manager` 将 `include:mounts-panel` 关→开。
 
 **显示的工作区与当前会话不符。**
-见 §7。面板取注册表中最近更新的工作区，无会话级绑定。
+面板取注册表中最近更新的工作区，无会话级绑定，详见「已知限制」。
 
 **「打开」显示为「复制路径」。**
 该页面无法取得 Session Remote，属预期降级。点击后完整路径进入剪贴板。
@@ -154,7 +168,9 @@ Windows is verified; other platforms are untested. No third-party dependencies.
 **为何不提供正文预览。**
 正文预览需要在端点中开放文件读取，而该端点仅以 Host 头作准入控制，不做会话鉴权。故仅提供「打开」。
 
-## 10 开发
+---
+
+## 开发 · *Development*
 
     dsh-mounts/
       package.json       包清单、dsh.bundle、dsh.client
@@ -169,10 +185,14 @@ Windows is verified; other platforms are untested. No third-party dependencies.
 - 读盘文本先做 `\r\n?` 到 `\n` 的规范化。CRLF 的 `SKILL.md` 会使 frontmatter 解析静默失败，
   description 退化为空字符串。
 
-## 11 许可
+---
+
+## 许可 · *License*
 
 MIT，见 [LICENSE](LICENSE)。
 
-## 反馈
+---
+
+## 反馈 · *Feedback*
 
 问题请提交 issue，附 DSH 版本与复现步骤。
