@@ -2,8 +2,8 @@
 
 > DeepSeek Harness 侧栏里的「**挂载清单**」面板 —— 一眼看清这个 profile 到底挂了什么。
 
-在 DSH 里，"我挂了什么"散落在四处：预规定、技能、MCP、Agent Preset。
-这个面板把它们摊在一屏，**纯只读**，三层可展开。
+在 DSH 里，"我挂了什么"散落在五个地方：预规定、记忆库、技能、MCP、智能体预设。
+这个面板把它们摊在同一页，**纯只读**，默认全部折叠，想看哪块点哪块。
 
 ---
 
@@ -14,13 +14,24 @@
 │  挂载清单                                        [只读]   [刷新]  │
 │  这个 profile 实际挂载了什么：记忆链、技能、MCP 与 Agent Preset    │
 ├──────────────────────────────────────────────────────────────────┤
-│  ▾ 预规定 / 记忆                                            2    │
-│     ✓ ~/.dsh/AGENTS.md                          4.2 KB ·  6 节   │
-│     ✓ AGENTS.local.md                           3.1 KB ·  4 节   │
-│  ▸ 技能                                                     7    │
-│  ▸ MCP 服务器                                               3    │
-│  ▸ Agent Preset                                             1    │
+│  ▸ 预规定                                                    2   │
+│  ▸ 记忆库                                    6 个库 · 34 个文件  │
+│  ▸ 技能                                                      7   │
+│  ▸ MCP 服务器                                                3   │
+│  ▸ 智能体预设                                                5   │
 └──────────────────────────────────────────────────────────────────┘
+```
+
+展开「记忆库」，再点开其中一个库：
+
+```
+  ▾ 记忆库                                       6 个库 · 34 个文件
+     ▾ my-app · 14 个文件                         2026-10-16
+         MEMORY.md                     6.7 KB · 2026-10-16   [打开]
+         overview.md                  12.9 KB · 2026-10-17   [打开]
+         …
+     ▸ another-project · 9 个文件                          2026-10-06
+     ▸ …
 ```
 
 > 这是示意图，**数据为示例**。仓库**不附真实截图**——面板会显示本机绝对路径、用户名、目录结构，
@@ -28,23 +39,25 @@
 
 ---
 
-## 四块内容
+## 五块内容
 
 | 块 | 说明 |
 |---|---|
-| **预规定 / 记忆** | 全局 `~/.dsh/AGENTS.md` + 项目根到 cwd 链上的 `AGENTS.md` / `CLAUDE.md` / `AGENTS.local.md` / `CLAUDE.local.md`，各自的 `##` 章节标题 |
-| **技能** | 四个扫描根（项目 `.dsh/skills` → 项目 `.agents/skills` → 用户 `~/.dsh/skills` → 用户 `~/.agents/skills`），每条含大小、来源、详情里的完整描述与路径；**还会列出技能正文提到的外部路径**（标注"未注入，需手动读取"） |
+| **预规定** | 全局 `~/.dsh/AGENTS.md` + 项目根到 cwd 链上的 `AGENTS.md` / `CLAUDE.md` / `AGENTS.local.md` / `CLAUDE.local.md` |
+| **记忆库** | `~/.zcode/cli/memories/projects/*/memory/` 下的独立记忆库，每个库一个列表。**DSH 不读取这些文件**，这里只是清单 |
+| **技能** | 四个扫描根：项目 `.dsh/skills` → 项目 `.agents/skills` → 用户 `~/.dsh/skills` → 用户 `~/.agents/skills` |
 | **MCP 服务器** | profile 补丁里的 `dsh-mcp-client` 行：serverName、transport、命令或 URL、env 变量名 |
-| **Agent Preset** | profile 里定义的预设 + 注册表的 `default` / `selectedDefault` |
+| **智能体预设** | profile 定义的预设 + 内置的 `standard / ptc / minimal / cordis`，标出「当前」与「部署默认」 |
 
-## 三层展开
+## 折叠与详情
 
-    L1  四块摘要（一屏放得下）
-    L2  块内条目（点块标题展开）
-    L3  条目详情（点条目展开）
+- 打开面板时五块**全部折叠**，只显示标题行
+- 点块标题 → 展开该块的条目
+- 点条目 → 展开它**自己的字段**：章节标题 / 完整描述与路径 / 补丁行与 env / 目标
+- 「记忆库」多一层：点库标头 → 文件列表；每个文件带「**打开**」，用系统默认程序打开，
+  拿不到 Remote 时降级为「复制路径」
 
-技能的外部路径可以继续展开成**文件列表**（名字 + 大小 + 修改时间），每个文件带一个「**打开**」按钮，
-用系统默认程序打开；目录则在资源管理器里打开。
+所有展开都只显示该条目自身的信息，**不会去索引别处的文件**。
 
 ---
 
@@ -60,7 +73,7 @@
 
 > ⛔ **不要**手工改 profile 的 `package.json` / `cordis.patch.yml`，也不要在 profile 目录跑 pnpm —— 官方指南明确禁止，`install_bundle` 会处理这些。
 
-改完客户端代码**刷新页面**即可；改 Host 代码用 `plugin_manager` 把 `include:mounts-panel` 关→开重新 import。
+改完客户端代码**硬刷新页面**（Ctrl+Shift+R）；改 Host 代码用 `plugin_manager` 把 `include:mounts-panel` 关→开重新 import。
 
 ---
 
@@ -74,16 +87,21 @@
   - 只接受 **GET / HEAD**，其余 **405**
   - `Cache-Control: no-store`
   - 自定义的 `cwd` 参数被**移除**，不会变成任意目录探测器
-- **不返回任何文件内容**，只返回路径与元数据（文件名、大小、时间）
-- 「打开」动作**不自建端点**：走 DSH 现成的 Session Remote（`remote.session.openWorkspacePath`），由 Host 侧用组合文件系统复核路径；Remote 不可用时自动降级为「复制路径」
+- **不返回任何文件内容**：记忆库只做 `stat`（文件名、大小、修改时间），技能只取 frontmatter 的 description
+- 「打开」动作**不自建端点**：走 DSH 现成的 Session Remote（`remote.session.openWorkspacePath`），
+  由 Host 侧用组合文件系统复核路径；Remote 不可用时自动降级为「复制路径」
 
 ---
 
 ## 已知限制
 
-- **内置 Preset 只显示名字**：它们定义在 bundle 里（`app.asar` 内），第三方插件无法读取，所以只列出 `standard / ptc / minimal / cordis`。
-- **MCP 的 preset 列是推导的**：取「MCP 数 == 服务器总数」的唯一 preset，推不出来就留空。API 里没有 MCP→preset 的映射（要精确得在 Host 侧按补丁子树归属）。
-- **工作区是猜测的**：取 workspace 注册表里 `updatedAt` 最新的一个，不是会话级精确绑定。切换工作区后可能显示的不是当前会话所在的那个。
+- **内置 Preset 只有名字**：定义在 bundle 里（`app.asar` 内），第三方插件读不了，所以只能列出 id，不能展开。
+- **记忆库路径是写死的**：只认 `~/.zcode/cli/memories/projects/`，别的工具的记忆库不会被发现。
+- **技能描述上限 400 字**：超过的会在末尾加「…」。
+- **MCP 的 preset 列是推导的**：取「MCP 数 == 服务器总数」的唯一 preset，推不出来就留空。
+  API 里没有 MCP→preset 的映射（要精确得在 Host 侧按补丁子树归属）。
+- **工作区是猜测的**：取 workspace 注册表里 `updatedAt` 最新的一个，不是会话级精确绑定。
+  切换工作区后可能显示的不是当前会话所在的那个。
 - **「打开」依赖 Session Remote**：在拿不到 Remote 的部署里会显示「复制路径」。
 
 ---
@@ -106,7 +124,7 @@
       locale/{zh,en}.json
       icon.svg
 
-- `client.js` 改动 → 刷新页面
+- `client.js` 改动 → **硬刷新**（Ctrl+Shift+R）
 - `index.js` 改动 → `plugin_manager` 把 `include:mounts-panel` 关→开
 - 读盘文本一律先 `\r\n?` → `\n` 规范化：CRLF 的 `SKILL.md` 曾让 frontmatter 解析静默变空
 

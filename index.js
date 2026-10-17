@@ -40,6 +40,12 @@ function fileSize(file) {
     return 0
   }
 }
+/** Cap a text value and mark the cut with an ellipsis, so the UI never shows a broken sentence. */
+function capText(value, max) {
+  const text = String(value || '').trim()
+  return text.length > max ? text.slice(0, max - 1) + '\u2026' : text
+}
+
 
 function isDirectory(target) {
   try {
@@ -80,89 +86,6 @@ function headings(text) {
     .map((line) => line.slice(3).trim())
 }
 
-/**
- * One directory's entries as name/existence facts: name, whether it is a
- * directory, bytes, and mtime. One level only, never a symlink target, never
- * file content; newest first, capped at 200 so a huge directory stays bounded.
- */
-function directoryItems(dir) {
-  let dirents
-  try {
-    dirents = readdirSync(dir, { withFileTypes: true })
-  } catch {
-    return []
-  }
-  const items = []
-  for (const dirent of dirents) {
-    if (dirent.isSymbolicLink()) continue
-    const full = path.join(dir, dirent.name)
-    let info
-    try {
-      info = statSync(full)
-    } catch {
-      continue
-    }
-    items.push({
-      name: dirent.name,
-      isDir: info.isDirectory(),
-      bytes: info.size,
-      mtime: new Date(info.mtimeMs).toISOString(),
-    })
-  }
-  items.sort((a, b) => (a.mtime < b.mtime ? 1 : a.mtime > b.mtime ? -1 : 0))
-  return items.slice(0, 200)
-}
-
-/**
- * Absolute paths a skill's own text points at, kept as existence facts only:
- * the path, whether it is a directory or a file, a directory's entry count
- * capped at 999, and that directory's newest 200 entries. No file content ever
- * leaves here.
- *
- * The match is not line-anchored: skill prose embeds paths mid-sentence (after
- * a backtick, a dash, or a comma), so only a boundary before the drive letter
- * and a MAX_PATH length cap keep the false positives down.
- */
-function externalRefs(file) {
-  const text = readText(file)
-  if (!text) return []
-  const refs = []
-  const seen = new Set()
-  for (const match of text.matchAll(/[A-Za-z]:[\\/][^\s"'`)<>\]]+/g)) {
-    const before = match.index === 0 ? '' : text[match.index - 1]
-    if (before && !/[\s`"'(（\[{:：，,、；;|*\-]/.test(before)) continue
-    const target = match[0].replace(/[.,;:]+$/, '')
-    if (!target || target.length > 259) continue
-    const key = target.toLowerCase()
-    if (seen.has(key)) continue
-    let info
-    try {
-      info = statSync(target)
-    } catch {
-      continue
-    }
-    seen.add(key)
-    if (info.isDirectory()) {
-      let entries
-      try {
-        entries = Math.min(readdirSync(target).length, 999)
-      } catch {
-        entries = undefined
-      }
-      const items = directoryItems(target)
-      refs.push(
-        entries === undefined
-          ? { path: target, kind: 'dir', items }
-          : { path: target, kind: 'dir', entries, items },
-      )
-    } else {
-      refs.push({ path: target, kind: 'file' })
-    }
-    if (refs.length >= 5) break
-  }
-  return refs
-}
-
 function skillsIn(root, rank, label) {
   const found = []
   if (!isDirectory(root)) return { found, exists: false }
@@ -181,10 +104,9 @@ function skillsIn(root, rank, label) {
       label,
       dir: entry,
       name: meta.name || entry,
-      desc: String(meta.description || '').slice(0, 160),
+      desc: capText(meta.description, 400),
       bytes: fileSize(hit),
       path: hit,
-      refs: externalRefs(hit),
     })
   }
   return { found, exists: true }
@@ -319,6 +241,52 @@ function scanPresetRows(patchFile) {
   return { mcp, presets, registry }
 }
 
+/**
+ * Independent memory stores under `<home>/.zcode/cli/memories/projects/*\/memory`.
+ * One directory is one store: its `.md` files up to 200, stat only, never content.
+ * Stores sort by file count descending, then name ascending.
+ */
+function memoryStores() {
+  const root = path.join(homedir(), '.zcode', 'cli', 'memories', 'projects')
+  if (!isDirectory(root)) return []
+  let entries
+  try {
+    entries = readdirSync(root)
+  } catch {
+    return []
+  }
+  const stores = []
+  for (const name of entries) {
+    const dir = path.join(root, name, 'memory')
+    if (!isDirectory(dir)) continue
+    let files
+    try {
+      files = readdirSync(dir)
+    } catch {
+      continue
+    }
+    const items = []
+    for (const file of files) {
+      if (!file.toLowerCase().endsWith('.md')) continue
+      const full = path.join(dir, file)
+      let info
+      try {
+        info = statSync(full)
+      } catch {
+        continue
+      }
+      if (!info.isFile()) continue
+      items.push({ name: file, bytes: info.size, mtime: new Date(info.mtimeMs).toISOString() })
+      if (items.length >= 200) break
+    }
+    items.sort((a, b) => a.name.localeCompare(b.name))
+    const latest = items.reduce((newest, item) => (item.mtime > newest ? item.mtime : newest), '')
+    stores.push({ name, dir, count: items.length, latest, files: items })
+  }
+  stores.sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
+  return stores
+}
+
 function scan({ dshHome, profileName, profileDir, cwd }) {
   const patch = path.join(profileDir, 'cordis.patch.yml')
   const project = locateProject(cwd)
@@ -356,6 +324,7 @@ function scan({ dshHome, profileName, profileDir, cwd }) {
       sections: globalText ? headings(globalText).slice(0, 12) : [],
     },
     chain: memoryChain(project.root, cwd),
+    memory: memoryStores(),
     skillRoots,
     skills,
     mcp,

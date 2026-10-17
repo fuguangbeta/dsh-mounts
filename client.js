@@ -1,10 +1,10 @@
 /**
  * dsh-mounts — Client half.
  *
- * A read-only sidebar panel in three levels: a block summary, the items of one
- * block, and the detail of one item. The panel only reads the JSON snapshot its
- * Host half serves; it writes nothing, starts no process and reaches no other
- * origin.
+ * One read-only page, four flat lists. Every block collapses from its title;
+ * rows are two-line cards (name + one secondary line) and never expand.
+ * The panel only reads the JSON snapshot its Host half serves; it writes
+ * nothing, starts no process and reaches no other origin.
  */
 window.__ModuleLoader__.load({
   id: 'dsh-mounts',
@@ -29,54 +29,36 @@ window.__ModuleLoader__.load({
       'meta.patch': '补丁',
       'meta.git': '含 .git',
       'meta.noGit': '无 .git',
-      'section.rules': '预规定 / 记忆',
+      'section.rules': '预规定',
+      'section.memory': '记忆库',
       'section.skills': '技能',
       'section.mcp': 'MCP 服务器',
-      'section.presets': 'Agent Preset',
+      'section.presets': '智能体预设',
       'label.sections': '节',
+      'memory.count': '%s 个库 · %s 个文件',
+      'memory.files': '%s 个文件',
+      'detail.open': '打开',
       'detail.path': '路径',
       'detail.sections': '章节',
-      'detail.noSections': '无二级标题',
-      'detail.source': '来源根',
-      'detail.description': '描述',
-      'detail.target': '目标',
-      'detail.env': 'env 变量',
+      'detail.desc': '描述',
+      'detail.source': '来源',
       'detail.row': '补丁行',
       'detail.title': '标题',
-      'detail.registry': '注册表',
-      'detail.note': '说明',
-      'detail.refs': '引用的外部路径（未注入，需手动读取）',
-      'detail.dir': '目录',
-      'detail.file': '文件',
-      'detail.items': '项',
-      'detail.open': '打开',
-      'detail.openFailed': '打开失败：系统默认程序没有接受这个文件',
-      'detail.noDesktop': '当前部署没有打开本地文件的通道',
+      'detail.target': '目标',
+      'detail.env': 'env',
       'detail.copy': '复制路径',
       'detail.copied': '已复制到剪贴板',
       'detail.copyFailed': '复制失败：浏览器没有授予剪贴板权限',
-      'detail.revealHint': '复制后可在资源管理器里粘贴打开',
-      'detail.none': '—',
-      'rules.global': '全局预规定',
-      'rules.chain': '项目链',
+      'detail.openFailed': '打开失败：系统默认程序没有接受这个文件',
       'rules.empty': '项目链上没有 AGENTS.md / AGENTS.local.md',
-      'skills.roots': '扫描根',
       'skills.empty': '没有发现技能',
       'skills.project': '项目',
-      'skills.user': '用户',
-      'skills.emptyRoot': '未创建或无技能',
-      'skills.missing': '未创建',
       'mcp.empty': '这个 profile 没有 MCP 行',
-      'mcp.env': 'env',
-      'preset.registry': '注册表',
+      'preset.empty': '这个 profile 没有额外 preset',
       'preset.current': '当前',
       'preset.deployed': '部署默认',
-      'preset.builtin': '内置（来自 bundle，不在此补丁中）',
-      'preset.empty': '这个 profile 没有额外 preset',
-      'preset.note': '在 profile 补丁中声明，承载 %s 个 MCP 服务器',
-      'common.empty': '—',
+      'preset.builtinRow': '内置 preset（来自 bundle，不可展开）',
       'common.generated': '生成于',
-      'common.none': '无',
     }
 
     const EN = {
@@ -93,54 +75,36 @@ window.__ModuleLoader__.load({
       'meta.patch': 'Patch',
       'meta.git': 'has .git',
       'meta.noGit': 'no .git',
-      'section.rules': 'Instructions / memory',
+      'section.rules': 'Instructions',
+      'section.memory': 'Memory stores',
       'section.skills': 'Skills',
       'section.mcp': 'MCP servers',
       'section.presets': 'Agent Presets',
       'label.sections': 'sections',
+      'memory.count': '%s stores · %s files',
+      'memory.files': '%s files',
+      'detail.open': 'Open',
       'detail.path': 'Path',
       'detail.sections': 'Sections',
-      'detail.noSections': 'No sub-sections',
-      'detail.source': 'Source root',
-      'detail.description': 'Description',
-      'detail.target': 'Target',
-      'detail.env': 'env vars',
+      'detail.desc': 'Description',
+      'detail.source': 'Source',
       'detail.row': 'Patch row',
       'detail.title': 'Title',
-      'detail.registry': 'Registry',
-      'detail.note': 'Note',
-      'detail.refs': 'Referenced external paths (not injected; read manually)',
-      'detail.dir': 'dir',
-      'detail.file': 'file',
-      'detail.items': 'items',
-      'detail.open': 'Open',
-      'detail.openFailed': 'Open failed: the default application did not accept this file',
-      'detail.noDesktop': 'This deployment has no channel for opening local files',
+      'detail.target': 'Target',
+      'detail.env': 'env',
       'detail.copy': 'Copy path',
       'detail.copied': 'Copied to clipboard',
       'detail.copyFailed': 'Copy failed: the browser denied clipboard access',
-      'detail.revealHint': 'Paste the copied path into Explorer to open it',
-      'detail.none': '—',
-      'rules.global': 'Global instructions',
-      'rules.chain': 'Project chain',
+      'detail.openFailed': 'Open failed: the default application did not accept this file',
       'rules.empty': 'No AGENTS.md / AGENTS.local.md on the project chain',
-      'skills.roots': 'Scan roots',
       'skills.empty': 'No skills found',
       'skills.project': 'Project',
-      'skills.user': 'User',
-      'skills.emptyRoot': 'missing or empty',
-      'skills.missing': 'missing',
       'mcp.empty': 'This profile declares no MCP row',
-      'mcp.env': 'env',
-      'preset.registry': 'Registry',
+      'preset.empty': 'This profile declares no extra preset',
       'preset.current': 'current',
       'preset.deployed': 'deployed default',
-      'preset.builtin': 'Built in (shipped by the bundle, not this patch)',
-      'preset.empty': 'This profile declares no extra preset',
-      'preset.note': 'Declared in the profile patch; carries %s MCP server(s)',
-      'common.empty': '—',
+      'preset.builtinRow': 'Built-in preset (from the bundle, not expandable)',
       'common.generated': 'Generated',
-      'common.none': 'none',
     }
 
     const CSS = `
@@ -151,7 +115,6 @@ window.__ModuleLoader__.load({
 .dmp-sub{margin-top:6px;font-size:13px;line-height:1.5;color:var(--dsw-alias-label-secondary);}
 .dmp-actions{margin-left:auto;display:flex;align-items:center;gap:8px;flex:none;}
 .dmp-chip{display:inline-flex;align-items:center;gap:4px;padding:1px 8px;border-radius:999px;border:1px solid var(--dsw-alias-border-l1);font-size:11px;line-height:18px;color:var(--dsw-alias-label-secondary);white-space:nowrap;}
-.dmp-chip.accent{color:var(--dsw-alias-brand-primary);border-color:var(--dsw-alias-brand-primary);}
 .dmp-chip.ok{color:var(--dsw-alias-state-success-primary);border-color:var(--dsw-alias-state-success-primary);}
 .dmp-chip.warn{color:var(--dsw-alias-state-warn-primary);border-color:var(--dsw-alias-state-warn-primary);}
 .dmp-btn{appearance:none;border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-primary);border-radius:8px;padding:5px 12px;font-size:12px;line-height:18px;cursor:pointer;font-family:inherit;}
@@ -172,48 +135,39 @@ window.__ModuleLoader__.load({
 .dmp-group{display:flex;align-items:baseline;gap:6px;padding:10px 16px 4px;font-size:11.5px;color:var(--dsw-alias-label-secondary);}
 .dmp-group b{font-weight:500;color:var(--dsw-alias-label-primary);}
 .dmp-group-meta{font-variant-numeric:tabular-nums;white-space:nowrap;}
+.dmp-mem-head{display:flex;align-items:baseline;gap:6px;width:100%;padding:9px 16px;background:none;border:0;color:inherit;font:inherit;font-size:11.5px;text-align:left;cursor:pointer;color:var(--dsw-alias-label-secondary);}
+.dmp-mem-head:hover{background:var(--dsw-alias-bg-layer-2);}
+.dmp-mem-head:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:-2px;}
+.dmp-mem-head b{font-weight:500;color:var(--dsw-alias-label-primary);}
+.dmp-mem-count{font-variant-numeric:tabular-nums;}
+.dmp-mem-latest{margin-left:auto;font-variant-numeric:tabular-nums;white-space:nowrap;}
+.dmp-mem-body{border-top:1px solid var(--dsw-alias-border-l1);}
+.dmp-file{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:12px;padding:3px 16px 3px 40px;font-size:11.5px;line-height:1.6;}
+.dmp-file-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--dsw-alias-label-primary);}
+.dmp-file-meta{font-variant-numeric:tabular-nums;color:var(--dsw-alias-label-secondary);white-space:nowrap;}
+.dmp-open-btn{appearance:none;border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-primary);border-radius:6px;padding:0 8px;font-size:11px;line-height:18px;cursor:pointer;font-family:inherit;white-space:nowrap;}
+.dmp-open-btn:hover{border-color:var(--dsw-alias-border-l2);}
+.dmp-open-btn:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:2px;}
+.dmp-open-notice{padding:8px 16px;font-size:11.5px;color:var(--dsw-alias-state-success-primary);}
+.dmp-open-error{padding:8px 16px;font-size:11.5px;color:var(--dsw-alias-state-error-primary);}
 .dmp-item{border-top:1px solid var(--dsw-alias-border-l1);}
 .dmp-item:first-child{border-top:0;}
-.dmp-item-head{display:grid;grid-template-columns:14px minmax(0,1fr) auto;align-items:center;gap:10px;width:100%;padding:9px 16px;background:none;border:0;color:inherit;font:inherit;text-align:left;cursor:pointer;}
-.dmp-item-head:hover{background:var(--dsw-alias-bg-layer-2);}
-.dmp-item-head:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:-2px;}
-.dmp-dot{flex:none;font-size:12px;line-height:1.4;}
-.dmp-dot.on{color:var(--dsw-alias-state-success-primary);}
-.dmp-dot.off{color:var(--dsw-alias-state-idle-primary);}
-.dmp-name{font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-.dmp-mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;}
-.dmp-meta-line{display:flex;align-items:center;gap:8px;justify-content:flex-end;font-size:11.5px;color:var(--dsw-alias-label-secondary);font-variant-numeric:tabular-nums;white-space:nowrap;}
-.dmp-detail{padding:2px 16px 12px 40px;font-size:12px;line-height:1.7;color:var(--dsw-alias-label-secondary);}
+.dmp-item.static{display:flex;align-items:center;gap:14px;padding:10px 16px;}
+.dmp-item.expandable{display:block;}
+.dmp-row-head{display:grid;grid-template-columns:12px minmax(0,1fr) auto;align-items:center;gap:10px;width:100%;padding:10px 16px;background:none;border:0;color:inherit;font:inherit;text-align:left;cursor:pointer;}
+.dmp-row-head:hover{background:var(--dsw-alias-bg-layer-2);}
+.dmp-row-head:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:-2px;}
+.dmp-row-body{padding:2px 16px 12px 40px;font-size:11.5px;line-height:1.7;color:var(--dsw-alias-label-secondary);}
 .dmp-detail-line{display:flex;gap:8px;min-width:0;}
-.dmp-detail-line > span:last-child{min-width:0;word-break:break-all;color:var(--dsw-alias-label-secondary);}
 .dmp-detail-label{flex:none;opacity:.8;}
-.dmp-detail-section{padding-left:0;}
+.dmp-detail-value{min-width:0;word-break:break-word;color:var(--dsw-alias-label-secondary);}
+.dmp-item-text{flex:1;min-width:0;}
+.dmp-line1{display:flex;align-items:baseline;gap:8px;min-width:0;}
+.dmp-name{font-size:13px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.dmp-secondary{margin-top:2px;font-size:11.5px;line-height:1.5;color:var(--dsw-alias-label-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.dmp-item-meta{flex:none;font-size:11.5px;color:var(--dsw-alias-label-secondary);font-variant-numeric:tabular-nums;white-space:nowrap;text-align:right;max-width:220px;overflow:hidden;text-overflow:ellipsis;}
+.dmp-mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;}
 .dmp-empty{padding:12px 16px;font-size:12px;color:var(--dsw-alias-label-secondary);}
-.dmp-detail-sub{margin-top:6px;padding-top:6px;border-top:1px dashed var(--dsw-alias-border-l1);}
-.dmp-ref{margin-top:2px;}
-.dmp-ref-head{display:flex;align-items:baseline;gap:8px;width:100%;padding:3px 0;background:none;border:0;color:inherit;font:inherit;text-align:left;cursor:pointer;}
-.dmp-ref-head.static{cursor:default;}
-.dmp-ref-head:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:2px;}
-.dmp-ref-path{flex:1;min-width:0;font-size:11.5px;word-break:break-all;color:var(--dsw-alias-label-secondary);}
-.dmp-ref-meta{flex:none;font-size:11px;opacity:.85;white-space:nowrap;}
-.dmp-ref-body{padding:2px 0 4px 20px;}
-.dmp-ref-item{display:grid;grid-template-columns:minmax(0,1fr) auto auto auto;align-items:baseline;gap:10px;padding:2px 0;}
-.dmp-ref-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--dsw-alias-label-primary);font-size:11.5px;}
-.dmp-ref-kind,.dmp-ref-date{font-size:11px;color:var(--dsw-alias-label-secondary);font-variant-numeric:tabular-nums;white-space:nowrap;}
-.dmp-link-btn{appearance:none;border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-primary);border-radius:6px;padding:0 8px;font-size:11px;line-height:18px;cursor:pointer;font-family:inherit;}
-.dmp-link-btn:hover{border-color:var(--dsw-alias-border-l2);}
-.dmp-link-btn:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:2px;}
-.dmp-ref-scroll{max-height:320px;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:var(--dsw-alias-border-l2) transparent;border-radius:6px;}
-.dmp-ref-scroll::-webkit-scrollbar{width:8px;}
-.dmp-ref-scroll::-webkit-scrollbar-thumb{background:var(--dsw-alias-border-l2);border-radius:4px;}
-.dmp-ref-scroll::-webkit-scrollbar-track{background:transparent;}
-.dmp-ref-item-action{appearance:none;border:0;background:none;font:inherit;text-align:left;cursor:pointer;width:100%;border-radius:6px;}
-.dmp-ref-item-action:hover{background:var(--dsw-alias-bg-layer-2);}
-.dmp-ref-item-action:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:-2px;}
-.dmp-open-error{padding-top:4px;font-size:11.5px;color:var(--dsw-alias-state-error-primary);}
-.dmp-open-notice{padding-top:4px;font-size:11.5px;color:var(--dsw-alias-state-success-primary);}
-.dmp-ref-hint{padding:2px 0 4px;font-size:11px;color:var(--dsw-alias-label-secondary);}
-.dmp-note{padding:10px 16px;font-size:11.5px;color:var(--dsw-alias-label-secondary);border-top:1px solid var(--dsw-alias-border-l1);}
 .dmp-foot{margin-top:18px;display:flex;flex-wrap:wrap;gap:6px 16px;font-size:11.5px;color:var(--dsw-alias-label-secondary);}
 `
 
@@ -237,23 +191,6 @@ window.__ModuleLoader__.load({
         String(date.getMinutes()).padStart(2, '0') +
         ':' +
         String(date.getSeconds()).padStart(2, '0')
-      )
-    }
-
-    function formatTime(iso) {
-      const date = new Date(iso)
-      if (Number.isNaN(date.getTime())) return ''
-      const pad = (value) => String(value).padStart(2, '0')
-      return (
-        date.getFullYear() +
-        '-' +
-        pad(date.getMonth() + 1) +
-        '-' +
-        pad(date.getDate()) +
-        ' ' +
-        pad(date.getHours()) +
-        ':' +
-        pad(date.getMinutes())
       )
     }
 
@@ -287,142 +224,55 @@ window.__ModuleLoader__.load({
       )
     }
 
-    function Item(props) {
-      const panelId = 'dmp-detail-' + props.id
-      return h(
-        'div',
-        { className: 'dmp-item' },
-        h(
-          'button',
-          {
-            type: 'button',
-            className: 'dmp-item-head',
-            'aria-expanded': props.open,
-            'aria-controls': panelId,
-            onClick: props.onToggle,
-          },
-          props.dot === null
-            ? h('span', { className: 'dmp-dot', 'aria-hidden': true })
-            : h(
-                'span',
-                { className: 'dmp-dot ' + (props.dot ? 'on' : 'off'), 'aria-hidden': true },
-                props.dot ? '✓' : '·',
-              ),
-          h('span', { className: 'dmp-name' + (props.mono ? ' dmp-mono' : ''), title: props.name }, props.name),
-          h('span', { className: 'dmp-meta-line' }, props.meta),
-        ),
-        h('div', { id: panelId, className: 'dmp-detail', hidden: !props.open }, props.detail),
-      )
-    }
-
     function detailLines(lines) {
       return lines.map((line, index) =>
         h(
           'div',
           { className: 'dmp-detail-line', key: index },
           h('span', { className: 'dmp-detail-label' }, line[0]),
-          h('span', null, line[1]),
+          h('span', { className: 'dmp-detail-value' }, line[1]),
         ),
       )
     }
 
-    function detailSections(title, sections) {
-      return h(
+    function Row(props) {
+      const text = h(
         'div',
-        { className: 'dmp-detail-line dmp-detail-section', key: 'sections' },
-        h('span', { className: 'dmp-detail-label' }, title),
+        { className: 'dmp-item-text' },
         h(
-          'span',
-          null,
-          sections.length
-            ? sections.map((section, index) => h('div', { key: index }, section))
-            : h('div', null, '—'),
-        ),
-      )
-    }
-
-    function RefRow(props) {
-      const entry = props.entry
-      const t = props.t
-      const isDir = entry.kind === 'dir'
-      const items = Array.isArray(entry.items) ? entry.items : []
-      const expandable = isDir && items.length > 0
-      const meta = isDir
-        ? typeof entry.entries === 'number'
-          ? entry.entries + ' ' + t('detail.items')
-          : t('detail.dir')
-        : t('detail.file')
-      const bodyId = 'dmp-ref-' + props.id
-      const head = [
-        h('span', { className: 'dmp-arrow', 'aria-hidden': true }, expandable ? (props.open ? '▾' : '▸') : ''),
-        h('span', { className: 'dmp-mono dmp-ref-path', title: entry.path }, entry.path),
-        h('span', { className: 'dmp-ref-meta' }, meta),
-      ]
-
-      if (!expandable) {
-        return h(
           'div',
-          { className: 'dmp-ref' },
-          h(
-            'div',
-            { className: 'dmp-ref-head static' },
-            ...head,
-            !isDir && props.actLabel
-              ? h(
-                  'button',
-                  { type: 'button', className: 'dmp-link-btn', onClick: () => props.onAct(entry.path), title: entry.path },
-                  props.actLabel,
-                )
-              : null,
-          ),
-        )
+          { className: 'dmp-line1' },
+          h('span', { className: 'dmp-name' + (props.mono ? ' dmp-mono' : ''), title: props.name }, props.name),
+          props.tag || null,
+        ),
+        h('div', { className: 'dmp-secondary', title: props.secondary }, props.secondary || '—'),
+      )
+      const meta = props.meta
+        ? h('div', { className: 'dmp-item-meta', title: String(props.metaTitle || props.meta) }, props.meta)
+        : null
+
+      if (!props.expandable) {
+        return h('div', { className: 'dmp-item static' }, text, meta)
       }
 
+      const bodyId = 'dmp-row-' + props.id
       return h(
         'div',
-        { className: 'dmp-ref' },
+        { className: 'dmp-item expandable' },
         h(
           'button',
           {
             type: 'button',
-            className: 'dmp-ref-head',
-            'aria-expanded': props.open,
+            className: 'dmp-row-head',
+            'aria-expanded': Boolean(props.open),
             'aria-controls': bodyId,
             onClick: props.onToggle,
           },
-          ...head,
+          h('span', { className: 'dmp-arrow', 'aria-hidden': true }, props.open ? '▾' : '▸'),
+          text,
+          meta,
         ),
-        h(
-          'div',
-          { id: bodyId, className: 'dmp-ref-body', hidden: !props.open },
-          h(
-            'div',
-            { className: 'dmp-ref-scroll' },
-            items.map((item) => {
-              const target = joinPath(entry.path, item.name)
-              const label = [
-                h('span', { className: 'dmp-ref-name', title: item.name }, item.isDir ? item.name + '\\' : item.name),
-                h('span', { className: 'dmp-ref-kind' }, item.isDir ? t('detail.dir') : bytes(item.bytes)),
-                h('span', { className: 'dmp-ref-date' }, formatTime(item.mtime)),
-              ]
-              if (item.isDir || !props.actLabel) {
-                return h('div', { className: 'dmp-ref-item', key: item.name }, ...label)
-              }
-              return h(
-                'button',
-                {
-                  type: 'button',
-                  className: 'dmp-ref-item dmp-ref-item-action',
-                  key: item.name,
-                  title: target,
-                  onClick: () => props.onAct(target),
-                },
-                ...label,
-                h('span', { className: 'dmp-link-btn' }, props.actLabel),
-              )
-            }),
-          ),
-        ),
+        h('div', { id: bodyId, className: 'dmp-row-body', hidden: !props.open }, props.detail),
       )
     }
 
@@ -554,11 +404,11 @@ window.__ModuleLoader__.load({
         function MountsPage() {
           const t = useTranslate()
           const inventory = useInventory()
-          const [openBlocks, setOpenBlocks] = React.useState({ rules: true })
-          const [openItems, setOpenItems] = React.useState({})
-          const [openRefs, setOpenRefs] = React.useState({})
-          const [openError, setOpenError] = React.useState(null)
+          const [openBlocks, setOpenBlocks] = React.useState({})
+          const [openStores, setOpenStores] = React.useState({})
+          const [openRows, setOpenRows] = React.useState({})
           const [notice, setNotice] = React.useState(null)
+          const [openError, setOpenError] = React.useState(null)
           const [canOpen, setCanOpen] = React.useState(false)
           const data = inventory.data
 
@@ -582,8 +432,13 @@ window.__ModuleLoader__.load({
             }
           }, [])
 
+          const toggleBlock = (id) => setOpenBlocks((previous) => ({ ...previous, [id]: !previous[id] }))
+          const toggleStore = (id) => setOpenStores((previous) => ({ ...previous, [id]: !previous[id] }))
+          const toggleRow = (id) => setOpenRows((previous) => ({ ...previous, [id]: !previous[id] }))
+
           const copyPath = (target) => {
             setOpenError(null)
+            setNotice(null)
             try {
               const clipboard = typeof navigator !== 'undefined' ? navigator.clipboard : null
               if (clipboard && typeof clipboard.writeText === 'function') {
@@ -599,10 +454,6 @@ window.__ModuleLoader__.load({
             setOpenError(t('detail.copyFailed'))
           }
 
-          const toggleBlock = (id) => setOpenBlocks((previous) => ({ ...previous, [id]: !previous[id] }))
-          const toggleItem = (id) => setOpenItems((previous) => ({ ...previous, [id]: !previous[id] }))
-          const toggleRef = (id) => setOpenRefs((previous) => ({ ...previous, [id]: !previous[id] }))
-          const isItemOpen = (id) => Boolean(openItems[id])
           const openFile = (target) => {
             setOpenError(null)
             setNotice(null)
@@ -638,6 +489,8 @@ window.__ModuleLoader__.load({
             const roots = data.skillRoots || []
             const servers = data.mcp || []
             const presets = data.presets || []
+            const memory = data.memory || []
+            const memoryFiles = memory.reduce((sum, store) => sum + store.count, 0)
             const registry = data.registry || {}
             const workspace = data.workspace || {}
             const profile = data.profile || {}
@@ -650,39 +503,72 @@ window.__ModuleLoader__.load({
               return home && text.toLowerCase().startsWith(home.toLowerCase()) ? '~' + text.slice(home.length) : text
             }
 
-            const sectionCount = (sections) => (sections || []).length + ' ' + t('label.sections')
+            const sectionMeta = (entry) =>
+              bytes(entry.bytes) + ' · ' + (entry.sections || []).length + ' ' + t('label.sections')
 
-            // ---- rules ----
-            const ruleItems = []
+            const ruleRows = []
             if (globalRules.exists) {
-              ruleItems.push({
-                key: 'global',
-                dot: true,
-                mono: true,
-                name: short(globalRules.path),
-                meta: [bytes(globalRules.bytes) + ' · ' + sectionCount(globalRules.sections)],
-                detail: [
-                  ...detailLines([[t('detail.path'), globalRules.path]]),
-                  detailSections(t('detail.sections'), globalRules.sections || []),
-                ],
-              })
+              ruleRows.push(
+                h(Row, {
+                  key: 'global',
+                  id: 'rule-global',
+                  name: short(globalRules.path),
+                  secondary: sectionMeta(globalRules),
+                  mono: true,
+                  expandable: true,
+                  open: Boolean(openRows['rule-global']),
+                  onToggle: () => toggleRow('rule-global'),
+                  detail: [
+                    ...detailLines([[t('detail.path'), globalRules.path]]),
+                    h(
+                      'div',
+                      { className: 'dmp-detail-line', key: 'sections' },
+                      h('span', { className: 'dmp-detail-label' }, t('detail.sections')),
+                      h(
+                        'span',
+                        { className: 'dmp-detail-value' },
+                        (globalRules.sections || []).length
+                          ? globalRules.sections.map((section, index) => h('div', { key: index }, section))
+                          : '—',
+                      ),
+                    ),
+                  ],
+                }),
+              )
             }
-            for (const entry of chain) {
-              ruleItems.push({
-                key: entry.path,
-                dot: true,
-                mono: true,
-                name: entry.rel,
-                meta: [bytes(entry.bytes) + ' · ' + sectionCount(entry.sections)],
-                detail: [
-                  ...detailLines([[t('detail.path'), entry.path]]),
-                  detailSections(t('detail.sections'), entry.sections || []),
-                ],
-              })
+            for (const [index, entry] of chain.entries()) {
+              const rowId = 'rule-' + index
+              ruleRows.push(
+                h(Row, {
+                  key: entry.path,
+                  id: rowId,
+                  name: entry.rel,
+                  secondary: sectionMeta(entry),
+                  mono: true,
+                  expandable: true,
+                  open: Boolean(openRows[rowId]),
+                  onToggle: () => toggleRow(rowId),
+                  detail: [
+                    ...detailLines([[t('detail.path'), entry.path]]),
+                    h(
+                      'div',
+                      { className: 'dmp-detail-line', key: 'sections' },
+                      h('span', { className: 'dmp-detail-label' }, t('detail.sections')),
+                      h(
+                        'span',
+                        { className: 'dmp-detail-value' },
+                        (entry.sections || []).length
+                          ? entry.sections.map((section, sectionIndex) => h('div', { key: sectionIndex }, section))
+                          : '—',
+                      ),
+                    ),
+                  ],
+                }),
+              )
             }
 
-            // ---- skills ----
             const skillsOf = (root) => skills.filter((skill) => skill.rank === root.rank && skill.label === root.label)
+            const openRoots = roots.filter((root) => skillsOf(root).length)
             const projectBase = String(workspace.projectRoot || '').replace(/\\/g, '/')
             const rootDisplay = (root) => {
               const full = String(root.root || '').replace(/\\/g, '/')
@@ -695,34 +581,113 @@ window.__ModuleLoader__.load({
               }
               return home && full.toLowerCase().startsWith(home.toLowerCase()) ? '~' + full.slice(home.length) : full
             }
-            const openRoots = roots.filter((root) => skillsOf(root).length)
-            const showRank = openRoots.length > 1
+            const skillIndex = new Map(skills.map((skill, index) => [skill.path, index]))
+            const skillRow = (skill) => {
+              const rowId = 'skill-' + skillIndex.get(skill.path)
+              return h(Row, {
+                key: skill.path,
+                id: rowId,
+                name: skill.name,
+                secondary: skill.desc || '—',
+                meta: bytes(skill.bytes),
+                expandable: true,
+                open: Boolean(openRows[rowId]),
+                onToggle: () => toggleRow(rowId),
+                detail: detailLines([
+                  [t('detail.desc'), skill.desc || '—'],
+                  [t('detail.path'), skill.path],
+                  [t('detail.source'), (skill.label || '') + ' · rank ' + skill.rank],
+                ]),
+              })
+            }
+            const skillNodes =
+              openRoots.length > 1
+                ? openRoots.map((root) =>
+                    h(
+                      'div',
+                      { key: root.label },
+                      h(
+                        'div',
+                        { className: 'dmp-group', title: root.root },
+                        h('b', null, rootDisplay(root)),
+                        h('span', { className: 'dmp-group-meta' }, '· ' + skillsOf(root).length),
+                      ),
+                      skillsOf(root).map(skillRow),
+                    ),
+                  )
+                : skills.map(skillRow)
 
-            // ---- mcp ----
             const carriers = presets.filter((preset) => preset.mcp === servers.length)
             const carrier = carriers.length === 1 ? carriers[0] : null
 
-            // ---- presets ----
-            const presetItems = presets.map((preset) => {
-              const current = Boolean(registry.selectedDefault && preset.id === registry.selectedDefault)
-              const deployed = !current && Boolean(registry.default && preset.id === registry.default)
-              return {
-                key: preset.row,
-                dot: null,
-                name: preset.id,
-                meta: [
-                  'MCP × ' + preset.mcp,
-                  current ? h(Chip, { tone: 'ok', key: 'current' }, t('preset.current')) : null,
-                  deployed ? h(Chip, { key: 'deployed' }, t('preset.deployed')) : null,
-                ],
+            const mcpRows = servers.map((server, index) => {
+              const rowId = 'mcp-' + index
+              return h(Row, {
+                key: server.row,
+                id: rowId,
+                name: (server.server || server.row) + ' · ' + (server.transport || '?'),
+                secondary: server.target || '—',
+                meta: carrier ? carrier.id : '',
+                expandable: true,
+                open: Boolean(openRows[rowId]),
+                onToggle: () => toggleRow(rowId),
                 detail: detailLines([
-                  [t('detail.title'), preset.title || '—'],
-                  [t('detail.row'), preset.row],
-                  [t('detail.registry'), 'default=' + (registry.default || '—') + ' · selectedDefault=' + (registry.selectedDefault || '—')],
-                  [t('detail.note'), String(t('preset.note')).replace('%s', String(preset.mcp))],
+                  [t('detail.row'), server.row],
+                  [t('detail.env'), (server.env || []).join('、') || '—'],
+                  [t('detail.target'), server.target || '—'],
                 ]),
-              }
+              })
             })
+
+            // Built-in presets ship with the bundle and are not in the profile
+            // patch. Keep the hard-coded list; order the current one first, then
+            // the deployment default, then the rest in their original order.
+            const BUILTIN_PRESETS = ['standard', 'ptc', 'minimal', 'cordis']
+            const builtinRank = (id) =>
+              id === registry.selectedDefault ? 0 : id === registry.default ? 1 : 2
+            const builtinIds = [...BUILTIN_PRESETS].sort(
+              (a, b) => builtinRank(a) - builtinRank(b) || BUILTIN_PRESETS.indexOf(a) - BUILTIN_PRESETS.indexOf(b),
+            )
+
+            const presetRows = [
+              ...presets.map((preset, index) => {
+                const current = Boolean(registry.selectedDefault && preset.id === registry.selectedDefault)
+                const deployed = !current && Boolean(registry.default && preset.id === registry.default)
+                const rowId = 'preset-' + index
+                return h(Row, {
+                  key: 'profile-' + preset.row,
+                  id: rowId,
+                  name: preset.id,
+                  secondary: preset.title || '—',
+                  meta: [
+                    current ? h(Chip, { tone: 'ok', key: 'current' }, t('preset.current')) : null,
+                    deployed ? h(Chip, { key: 'deployed' }, t('preset.deployed')) : null,
+                    h('span', { key: 'mcp' }, 'MCP × ' + preset.mcp),
+                  ],
+                  expandable: true,
+                  open: Boolean(openRows[rowId]),
+                  onToggle: () => toggleRow(rowId),
+                  detail: detailLines([
+                    [t('detail.row'), preset.row],
+                    [t('detail.title'), preset.title || '—'],
+                  ]),
+                })
+              }),
+              ...builtinIds.map((id) => {
+                const current = id === registry.selectedDefault
+                const deployed = !current && id === registry.default
+                return h(Row, {
+                  key: 'builtin-' + id,
+                  name: id,
+                  secondary: t('preset.builtinRow'),
+                  meta: current
+                    ? h(Chip, { tone: 'ok' }, t('preset.current'))
+                    : deployed
+                      ? h(Chip, null, t('preset.deployed'))
+                      : '',
+                })
+              }),
+            ]
 
             const samePath =
               Boolean(workspace.cwd) &&
@@ -784,22 +749,84 @@ window.__ModuleLoader__.load({
                   open: Boolean(openBlocks.rules),
                   onToggle: () => toggleBlock('rules'),
                 },
-                ruleItems.length
-                  ? ruleItems.map((item, index) =>
-                      h(Item, {
-                        key: item.key,
-                        id: 'rules-' + index,
-                        dot: item.dot,
-                        mono: item.mono,
-                        name: item.name,
-                        meta: item.meta,
-                        detail: item.detail,
-                        open: isItemOpen('rules-' + index),
-                        onToggle: () => toggleItem('rules-' + index),
-                      }),
-                    )
-                  : h('div', { className: 'dmp-empty' }, t('rules.empty')),
+                ruleRows.length ? ruleRows : h('div', { className: 'dmp-empty' }, t('rules.empty')),
               ),
+              memory.length
+                ? h(
+                    Block,
+                    {
+                      id: 'memory',
+                      title: t('section.memory'),
+                      count: String(t('memory.count'))
+                        .replace('%s', String(memory.length))
+                        .replace('%s', String(memoryFiles)),
+                      open: Boolean(openBlocks.memory),
+                      onToggle: () => toggleBlock('memory'),
+                    },
+                    h(
+                      React.Fragment,
+                      null,
+                      notice ? h('div', { className: 'dmp-open-notice' }, notice) : null,
+                      openError ? h('div', { className: 'dmp-open-error' }, openError) : null,
+                      memory.map((store) => {
+                      const bodyId = 'dmp-mem-' + store.name
+                      const open = Boolean(openStores[store.name])
+                      return h(
+                        'div',
+                        { key: store.name },
+                        h(
+                          'button',
+                          {
+                            type: 'button',
+                            className: 'dmp-mem-head',
+                            title: store.dir,
+                            'aria-expanded': open,
+                            'aria-controls': bodyId,
+                            onClick: () => toggleStore(store.name),
+                          },
+                          h('span', { className: 'dmp-arrow', 'aria-hidden': true }, open ? '▾' : '▸'),
+                          h('b', null, store.name),
+                          h(
+                            'span',
+                            { className: 'dmp-mem-count' },
+                            ' · ' + String(t('memory.files')).replace('%s', String(store.count)),
+                          ),
+                          store.latest
+                            ? h('span', { className: 'dmp-mem-latest' }, String(store.latest).slice(0, 10))
+                            : null,
+                        ),
+                        h(
+                          'div',
+                          { id: bodyId, className: 'dmp-mem-body', hidden: !open },
+                          store.files.map((file) => {
+                            const target = joinPath(store.dir, file.name)
+                            return h(
+                              'div',
+                              { className: 'dmp-file', key: file.name, title: target },
+                              h('span', { className: 'dmp-file-name' }, file.name),
+                              h(
+                                'span',
+                                { className: 'dmp-file-meta' },
+                                bytes(file.bytes) + ' · ' + String(file.mtime).slice(0, 10),
+                              ),
+                              h(
+                                'button',
+                                {
+                                  type: 'button',
+                                  className: 'dmp-open-btn',
+                                  title: target,
+                                  onClick: () => openFile(target),
+                                },
+                                canOpen ? t('detail.open') : t('detail.copy'),
+                              ),
+                            )
+                          }),
+                        ),
+                      )
+                    }),
+                    ),
+                  )
+                : null,
               h(
                 Block,
                 {
@@ -809,76 +836,7 @@ window.__ModuleLoader__.load({
                   open: Boolean(openBlocks.skills),
                   onToggle: () => toggleBlock('skills'),
                 },
-                openRoots.length
-                  ? openRoots.map((root, rootIndex) => {
-                      const items = skillsOf(root)
-                      return h(
-                        React.Fragment,
-                        { key: root.label },
-                        h(
-                          'div',
-                          { className: 'dmp-group', title: root.root },
-                          h('b', null, rootDisplay(root)),
-                          h(
-                            'span',
-                            { className: 'dmp-group-meta' },
-                            '· ' + (root.exists ? items.length : t('skills.missing')),
-                          ),
-                        ),
-                        items.map((skill, index) => {
-                          const itemId = 'skills-' + rootIndex + '-' + index
-                          const detail = [
-                            ...detailLines([
-                              [t('detail.description'), skill.desc || '—'],
-                              [t('detail.path'), skill.path],
-                              [t('detail.source'), root.root],
-                            ]),
-                          ]
-                          if (skill.refs && skill.refs.length) {
-                            detail.push(h('div', { className: 'dmp-detail-sub', key: 'refs-title' }, t('detail.refs')))
-                            if (!canOpen) {
-                              detail.push(h('div', { className: 'dmp-ref-hint', key: 'refs-hint' }, t('detail.revealHint')))
-                            }
-                            if (notice) {
-                              detail.push(h('div', { className: 'dmp-open-notice', key: 'refs-notice' }, notice))
-                            }
-                            if (openError) {
-                              detail.push(h('div', { className: 'dmp-open-error', key: 'refs-error' }, openError))
-                            }
-                            skill.refs.forEach((entry, refIndex) => {
-                              const refKey = skill.path + '|' + entry.path
-                              detail.push(
-                                h(RefRow, {
-                                  key: 'ref-' + entry.path,
-                                  id: itemId + '-ref-' + refIndex,
-                                  entry,
-                                  open: Boolean(openRefs[refKey]),
-                                  onToggle: () => toggleRef(refKey),
-                                  onAct: canOpen ? openFile : copyPath,
-                                  actLabel: canOpen ? t('detail.open') : t('detail.copy'),
-                                  t,
-                                }),
-                              )
-                            })
-                          }
-                          return h(Item, {
-                            key: skill.path,
-                            id: itemId,
-                            dot: null,
-                            mono: true,
-                            name: skill.name,
-                            meta: [
-                              showRank ? h(Chip, { tone: 'accent', key: 'rank' }, 'r' + skill.rank) : null,
-                              bytes(skill.bytes),
-                            ],
-                            detail,
-                            open: isItemOpen(itemId),
-                            onToggle: () => toggleItem(itemId),
-                          })
-                        }),
-                      )
-                    })
-                  : h('div', { className: 'dmp-empty' }, t('skills.empty')),
+                skills.length ? skillNodes : h('div', { className: 'dmp-empty' }, t('skills.empty')),
               ),
               h(
                 Block,
@@ -889,59 +847,18 @@ window.__ModuleLoader__.load({
                   open: Boolean(openBlocks.mcp),
                   onToggle: () => toggleBlock('mcp'),
                 },
-                servers.length
-                  ? servers.map((server, index) => {
-                      const itemId = 'mcp-' + index
-                      return h(Item, {
-                        key: server.row,
-                        id: itemId,
-                        dot: true,
-                        name: server.server || server.row,
-                        meta: [
-                          h(Chip, { tone: 'accent', key: 'transport' }, server.transport || '?'),
-                          carrier ? h('span', { className: 'dmp-mono', key: 'preset' }, carrier.id) : null,
-                        ],
-                        detail: [
-                          ...detailLines([
-                            [t('detail.target'), server.target || '—'],
-                            [t('detail.env'), (server.env || []).length ? server.env.join(', ') : t('common.none')],
-                            [t('detail.row'), server.row],
-                          ]),
-                        ],
-                        open: isItemOpen(itemId),
-                        onToggle: () => toggleItem(itemId),
-                      })
-                    })
-                  : h('div', { className: 'dmp-empty' }, t('mcp.empty')),
+                mcpRows.length ? mcpRows : h('div', { className: 'dmp-empty' }, t('mcp.empty')),
               ),
               h(
                 Block,
                 {
                   id: 'presets',
                   title: t('section.presets'),
-                  count: presets.length,
+                  count: presets.length + BUILTIN_PRESETS.length,
                   open: Boolean(openBlocks.presets),
                   onToggle: () => toggleBlock('presets'),
                 },
-                h(
-                  React.Fragment,
-                  null,
-                  presets.length
-                    ? presetItems.map((item, index) =>
-                        h(Item, {
-                          key: item.key,
-                          id: 'presets-' + index,
-                          dot: item.dot,
-                          name: item.name,
-                          meta: item.meta,
-                          detail: item.detail,
-                          open: isItemOpen('presets-' + index),
-                          onToggle: () => toggleItem('presets-' + index),
-                        }),
-                      )
-                    : h('div', { className: 'dmp-empty' }, t('preset.empty')),
-                  h('div', { className: 'dmp-note' }, t('preset.builtin')),
-                ),
+                presetRows.length ? presetRows : h('div', { className: 'dmp-empty' }, t('preset.empty')),
               ),
               h(
                 'div',
