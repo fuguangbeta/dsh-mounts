@@ -23,13 +23,10 @@ window.__ModuleLoader__.load({
       'panel.loading': '读取中…',
       'panel.error': '读取失败',
       'panel.retry': '重试',
-      'meta.workspace': '工作区',
-      'meta.project': '项目根',
-      'meta.workspaceIsProject': '工作区 = 项目根',
+      'meta.workspaceCount': '工作区 %s 个',
       'meta.patch': '补丁',
       'meta.inferred': '（推断）',
-      'meta.git': '含 .git',
-      'meta.noGit': '无 .git',
+      'meta.inferredHint': 'profile 名由安装路径推断',
       'section.rules': '预规定',
       'section.memory': '记忆库',
       'section.skills': '技能',
@@ -75,13 +72,10 @@ window.__ModuleLoader__.load({
       'panel.loading': 'Reading…',
       'panel.error': 'Failed to read',
       'panel.retry': 'Retry',
-      'meta.workspace': 'Workspace',
-      'meta.project': 'Project',
-      'meta.workspaceIsProject': 'Workspace = Project',
+      'meta.workspaceCount': '%s workspaces',
       'meta.patch': 'Patch',
       'meta.inferred': '(inferred)',
-      'meta.git': 'has .git',
-      'meta.noGit': 'no .git',
+      'meta.inferredHint': 'Profile name inferred from the install path',
       'section.rules': 'Instructions',
       'section.memory': 'Memory stores',
       'section.skills': 'Skills',
@@ -536,7 +530,6 @@ window.__ModuleLoader__.load({
               (sum, entry) => sum + (entry.rules || []).length + ((entry.memory && entry.memory.count) || 0),
               0,
             )
-            const workspace = data.workspace || {}
             const profile = data.profile || {}
 
             const home = String(globalRules.path || '')
@@ -744,56 +737,30 @@ window.__ModuleLoader__.load({
               ),
             ]
 
-            const samePath =
-              Boolean(workspace.cwd) &&
-              Boolean(workspace.projectRoot) &&
-              String(workspace.cwd).replace(/\\/g, '/').toLowerCase() ===
-                String(workspace.projectRoot).replace(/\\/g, '/').toLowerCase()
-
             body = h(
               React.Fragment,
               null,
               h(
                 'div',
                 { className: 'dmp-meta' },
-                samePath
-                  ? h(
-                      'span',
-                      { className: 'dmp-meta-item', title: workspace.cwd },
-                      h('span', { className: 'dmp-meta-key' }, t('meta.workspaceIsProject')),
-                      h('b', { className: 'dmp-meta-value' }, short(workspace.cwd)),
-                      h(
-                        Chip,
-                        { tone: workspace.hasGit ? 'ok' : undefined },
-                        workspace.hasGit ? t('meta.git') : t('meta.noGit'),
-                      ),
-                    )
-                  : [
-                      h(
-                        'span',
-                        { className: 'dmp-meta-item', title: workspace.cwd, key: 'ws' },
-                        h('span', { className: 'dmp-meta-key' }, t('meta.workspace')),
-                        h('b', { className: 'dmp-meta-value' }, short(workspace.cwd)),
-                      ),
-                      h(
-                        'span',
-                        { className: 'dmp-meta-item', title: workspace.projectRoot, key: 'pr' },
-                        h('span', { className: 'dmp-meta-key' }, t('meta.project')),
-                        h('b', { className: 'dmp-meta-value' }, short(workspace.projectRoot)),
-                        h(
-                          Chip,
-                          { tone: workspace.hasGit ? 'ok' : undefined },
-                          workspace.hasGit ? t('meta.git') : t('meta.noGit'),
-                        ),
-                      ),
-                    ],
                 h(
                   'span',
                   { className: 'dmp-meta-item', title: profile.patch },
                   h('span', { className: 'dmp-meta-key' }, t('meta.patch')),
                   h('b', { className: 'dmp-meta-value' }, String(profile.patch || '').split(/[\\/]/).pop() || '—'),
                   h(Chip, { tone: profile.patchExists ? 'ok' : 'warn' }, profile.patchExists ? '✓' : '·'),
-                  profile.inferred ? h(Chip, null, t('meta.inferred')) : null,
+                  profile.inferred
+                    ? h('span', { title: t('meta.inferredHint') }, h(Chip, null, t('meta.inferred')))
+                    : null,
+                ),
+                h(
+                  'span',
+                  { className: 'dmp-meta-item' },
+                  h(
+                    'span',
+                    { className: 'dmp-meta-key' },
+                    String(t('meta.workspaceCount')).replace('%s', String(workspaces.length)),
+                  ),
                 ),
               ),
               h(

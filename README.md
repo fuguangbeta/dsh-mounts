@@ -48,25 +48,27 @@ The panel does not modify any file and offers no settings.
 挂载清单  [只读]  [刷新]
 这个 profile 实际挂载了什么：预规定 · 记忆库 · 技能 · MCP · 智能体预设
 
-▸ 预规定 (2)
-▸ 记忆库 (6 个库 · 34 个文件)
-▸ 技能 (7)
+▸ 预规定 (1)
+▸ 记忆库 (2 个工作区 · 15 个文件)
+▸ 技能 (9)
 ▸ MCP 服务器 (3)
 ▸ 智能体预设 (5)
 ```
 
 *The panel in its initial state.*
 
+五个栏目常显，无内容时展开可见一行说明。*All five groups are always shown; an empty one explains itself when expanded.*
+
 ### 1.2 记忆库展开至文件级 · *Library Expanded to Files*
 
 ```
-▾ 记忆库 (6 个库 · 34 个文件)
-   ▾ my-app (14 个文件 · 最近 2026-10-16)
+▾ 记忆库 (2 个工作区 · 15 个文件)
+   ▾ my-app
+       AGENTS.md  [自动注入] · 6 节 · [打开]
        MEMORY.md · 6.7 KB · 2026-10-16 · [打开]
        overview.md · 12.9 KB · 2026-10-17 · [打开]
        …
-   ▸ another-project (9 个文件 · 最近 2026-10-06)
-   ▸ …
+   ▸ another-project
 ```
 
 两图为示意，数据非实测。*Both figures are illustrative; the data is not measured.*
