@@ -55,8 +55,6 @@ window.__ModuleLoader__.load({
       'skills.project': '项目',
       'mcp.empty': '这个 profile 没有 MCP 行',
       'preset.empty': '这个 profile 没有额外 preset',
-      'preset.current': '当前',
-      'preset.deployed': '部署默认',
       'preset.builtinRow': '内置 preset（来自 bundle，不可展开）',
       'common.generated': '生成于',
     }
@@ -101,8 +99,6 @@ window.__ModuleLoader__.load({
       'skills.project': 'Project',
       'mcp.empty': 'This profile declares no MCP row',
       'preset.empty': 'This profile declares no extra preset',
-      'preset.current': 'current',
-      'preset.deployed': 'deployed default',
       'preset.builtinRow': 'Built-in preset (from the bundle, not expandable)',
       'common.generated': 'Generated',
     }
@@ -491,7 +487,6 @@ window.__ModuleLoader__.load({
             const presets = data.presets || []
             const memory = data.memory || []
             const memoryFiles = memory.reduce((sum, store) => sum + store.count, 0)
-            const registry = data.registry || {}
             const workspace = data.workspace || {}
             const profile = data.profile || {}
 
@@ -640,30 +635,18 @@ window.__ModuleLoader__.load({
             })
 
             // Built-in presets ship with the bundle and are not in the profile
-            // patch. Keep the hard-coded list; order the current one first, then
-            // the deployment default, then the rest in their original order.
+            // patch. Keep the hard-coded list in its fixed order.
             const BUILTIN_PRESETS = ['standard', 'ptc', 'minimal', 'cordis']
-            const builtinRank = (id) =>
-              id === registry.selectedDefault ? 0 : id === registry.default ? 1 : 2
-            const builtinIds = [...BUILTIN_PRESETS].sort(
-              (a, b) => builtinRank(a) - builtinRank(b) || BUILTIN_PRESETS.indexOf(a) - BUILTIN_PRESETS.indexOf(b),
-            )
 
             const presetRows = [
               ...presets.map((preset, index) => {
-                const current = Boolean(registry.selectedDefault && preset.id === registry.selectedDefault)
-                const deployed = !current && Boolean(registry.default && preset.id === registry.default)
                 const rowId = 'preset-' + index
                 return h(Row, {
                   key: 'profile-' + preset.row,
                   id: rowId,
                   name: preset.id,
                   secondary: preset.title || '—',
-                  meta: [
-                    current ? h(Chip, { tone: 'ok', key: 'current' }, t('preset.current')) : null,
-                    deployed ? h(Chip, { key: 'deployed' }, t('preset.deployed')) : null,
-                    h('span', { key: 'mcp' }, 'MCP × ' + preset.mcp),
-                  ],
+                  meta: 'MCP × ' + preset.mcp,
                   expandable: true,
                   open: Boolean(openRows[rowId]),
                   onToggle: () => toggleRow(rowId),
@@ -673,20 +656,13 @@ window.__ModuleLoader__.load({
                   ]),
                 })
               }),
-              ...builtinIds.map((id) => {
-                const current = id === registry.selectedDefault
-                const deployed = !current && id === registry.default
-                return h(Row, {
+              ...BUILTIN_PRESETS.map((id) =>
+                h(Row, {
                   key: 'builtin-' + id,
                   name: id,
                   secondary: t('preset.builtinRow'),
-                  meta: current
-                    ? h(Chip, { tone: 'ok' }, t('preset.current'))
-                    : deployed
-                      ? h(Chip, null, t('preset.deployed'))
-                      : '',
-                })
-              }),
+                }),
+              ),
             ]
 
             const samePath =
