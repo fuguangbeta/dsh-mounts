@@ -50,7 +50,7 @@ const z = await loadSchemastery()
 
 export const Config = z
   ? z.object({
-      memoryRoots: z.array(z.string()).default(['~/.zcode/cli/memories/projects']),
+      memoryRoots: z.array(z.string()).default([]),
       extraSkillRoots: z.array(z.string()).default([]),
       extraPatchFiles: z.array(z.string()).default([]),
     })
@@ -353,43 +353,129 @@ function makeStore(name, dir) {
   return { name, dir, count: files.length, latest, files }
 }
 
-function memoryStores(roots) {
+function configuredStores(roots, warnings) {
   const stores = []
   for (const raw of roots || []) {
     const root = expandHome(raw)
-    if (!root || !isDirectory(root)) continue
+    if (!root) continue
+    if (!isDirectory(root)) {
+      warnings.push('memoryRoots 中的 ' + raw + ' 不存在')
+      continue
+    }
 
+    const found = []
     const own = makeStore(path.basename(root) || root, root)
-    if (own) {
-      stores.push(own)
-      continue
+    if (own) found.push(own)
+    else {
+      let children
+      try {
+        children = readdirSync(root)
+      } catch {
+        children = []
+      }
+      for (const child of children) {
+        const childDir = path.join(root, child)
+        if (!isDirectory(childDir)) continue
+        const memoryDir = path.join(childDir, 'memory')
+        const nested = isDirectory(memoryDir) ? makeStore(child, memoryDir) : null
+        if (nested) {
+          found.push(nested)
+          continue
+        }
+        const flat = makeStore(child, childDir)
+        if (flat) found.push(flat)
+      }
     }
 
-    let children
-    try {
-      children = readdirSync(root)
-    } catch {
+    if (!found.length) {
+      warnings.push('memoryRoots 中的 ' + raw + ' 下没有发现记忆库目录')
       continue
     }
-    for (const child of children) {
-      const childDir = path.join(root, child)
-      if (!isDirectory(childDir)) continue
-      const memoryDir = path.join(childDir, 'memory')
-      const nested = isDirectory(memoryDir) ? makeStore(child, memoryDir) : null
-      if (nested) {
-        stores.push(nested)
-        continue
-      }
-      const flat = makeStore(child, childDir)
-      if (flat) stores.push(flat)
+    for (const store of found) {
+      stores.push({
+        group: String(store.name).replace(/-[0-9a-f]{16}$/i, ''),
+        dir: store.dir,
+        origin: 'configured',
+        files: store.files,
+      })
     }
   }
-  stores.sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
   return stores
 }
 
-function scan({ dshHome, profileName, profileDir, cwd, memoryRoots, patchFiles, patchPath, extraSkillRoots, profileInferred }) {
+function workspaceStores(workspaces) {
+  const stores = []
+  for (const workspace of workspaces || []) {
+    const base = path.basename(workspace) || workspace
+    for (const relative of ['memory', path.join('.dsh', 'memory'), path.join('.agents', 'memory')]) {
+      const dir = path.join(workspace, relative)
+      if (!isDirectory(dir)) continue
+      const files = markdownFiles(dir)
+      if (!files.length) continue
+      stores.push({ group: base, dir, origin: 'workspace', files })
+    }
+  }
+  return stores
+}
+
+/** Merge stores by group: unique paths first, then same-name files keep the newest. */
+function mergeMemory(stores) {
+  const groups = new Map()
+  for (const store of stores) {
+    let group = groups.get(store.group)
+    if (!group) {
+      group = { group: store.group, origins: new Set(), dirs: [], byPath: new Map() }
+      groups.set(store.group, group)
+    }
+    group.origins.add(store.origin)
+    if (!group.dirs.includes(store.dir)) group.dirs.push(store.dir)
+    for (const file of store.files) {
+      group.byPath.set((store.dir + '|' + file.name).toLowerCase(), {
+        name: file.name,
+        bytes: file.bytes,
+        mtime: file.mtime,
+        dir: store.dir,
+      })
+    }
+  }
+
+  const result = []
+  for (const group of groups.values()) {
+    // Count physical files (unique paths) before same-name folding; `files`
+    // keeps one copy per name, and `folded` reports the removed duplicates.
+    const count = group.byPath.size
+    const byName = new Map()
+    for (const file of group.byPath.values()) {
+      const list = byName.get(file.name) || []
+      list.push(file)
+      byName.set(file.name, list)
+    }
+    const files = []
+    let folded = 0
+    for (const list of byName.values()) {
+      list.sort((a, b) => (a.mtime < b.mtime ? 1 : a.mtime > b.mtime ? -1 : 0))
+      files.push(list[0])
+      folded += list.length - 1
+    }
+    files.sort((a, b) => a.name.localeCompare(b.name))
+    const latest = files.reduce((newest, file) => (file.mtime > newest ? file.mtime : newest), '')
+    result.push({
+      group: group.group,
+      origin: group.origins.size > 1 ? 'both' : [...group.origins][0],
+      dirs: group.dirs.sort(),
+      count,
+      folded,
+      latest,
+      files,
+    })
+  }
+  result.sort((a, b) => b.count - a.count || a.group.localeCompare(b.group))
+  return result
+}
+
+function scan({ dshHome, profileName, profileDir, cwd, memoryRoots, workspaces, patchFiles, patchPath, extraSkillRoots, extraPatchFiles, profileInferred }) {
   const patch = patchPath || path.join(profileDir, 'cordis.patch.yml')
+  const configWarnings = []
   const project = locateProject(cwd)
   const globalFile = path.join(dshHome, 'AGENTS.md')
   const globalText = readText(globalFile)
@@ -410,12 +496,38 @@ function scan({ dshHome, profileName, profileDir, cwd, memoryRoots, patchFiles, 
 
   for (const raw of extraSkillRoots || []) {
     const root = expandHome(raw)
-    if (!root || !isDirectory(root)) continue
+    if (!root) continue
+    if (!isDirectory(root)) {
+      configWarnings.push('extraSkillRoots 中的 ' + raw + ' 不存在')
+      continue
+    }
+    const direct = path.join(root, 'SKILL.md')
+    if (isFile(direct)) {
+      const meta = frontmatter(readText(direct))
+      skills.push({
+        rank: 350,
+        label: '自定义',
+        dir: path.basename(root),
+        name: meta.name || path.basename(root),
+        desc: capText(meta.description, 1000),
+        bytes: fileSize(direct),
+        path: direct,
+      })
+      skillRoots.push({ label: '自定义', root, rank: 350, exists: true, count: 1 })
+      continue
+    }
     const { found, exists } = skillsIn(root, 350, '自定义')
     skillRoots.push({ label: '自定义', root, rank: 350, exists, count: found.length })
     skills.push(...found)
   }
   skills.sort((a, b) => a.rank - b.rank || a.name.localeCompare(b.name))
+
+  for (const raw of extraPatchFiles || []) {
+    const file = expandHome(raw)
+    if (file && !isFile(file)) configWarnings.push('extraPatchFiles 中的 ' + raw + ' 不存在')
+  }
+
+  const memory = mergeMemory([...workspaceStores(workspaces), ...configuredStores(memoryRoots, configWarnings)])
 
   const { mcp, presets, registry } = scanPresetRows(patchFiles)
 
@@ -443,7 +555,7 @@ function scan({ dshHome, profileName, profileDir, cwd, memoryRoots, patchFiles, 
       sections: globalText ? headings(globalText).slice(0, 12) : [],
     },
     chain: memoryChain(project.root, cwd),
-    memory: memoryStores(memoryRoots),
+    memory,
     skillRoots,
     skills,
     mcp,
@@ -451,14 +563,12 @@ function scan({ dshHome, profileName, profileDir, cwd, memoryRoots, patchFiles, 
     registry,
     builtins: BUILTIN_PRESETS,
     warnings,
+    configWarnings,
   }
 }
 
 export function apply(ctx, config) {
-  const memoryRoots =
-    config && Array.isArray(config.memoryRoots) && config.memoryRoots.length
-      ? config.memoryRoots
-      : ['~/.zcode/cli/memories/projects']
+  const memoryRoots = config && Array.isArray(config.memoryRoots) ? config.memoryRoots : []
   const extraSkillRoots = config && Array.isArray(config.extraSkillRoots) ? config.extraSkillRoots : []
   const extraPatchFiles = config && Array.isArray(config.extraPatchFiles) ? config.extraPatchFiles : []
   const home = homedir()
@@ -497,6 +607,18 @@ export function apply(ctx, config) {
     return process.cwd()
   }
 
+  const workspacePaths = () => {
+    try {
+      const registry = ctx.get('workspaceRegistry')
+      const list = registry && typeof registry.list === 'function' ? registry.list() : []
+      return list
+        .filter((workspace) => workspace && typeof workspace.path === 'string' && isDirectory(workspace.path))
+        .map((workspace) => workspace.path)
+    } catch {
+      return []
+    }
+  }
+
   const handler = (req, res) => {
     try {
       // Loopback only: a rebound DNS name reaches this port with its own Host
@@ -521,9 +643,11 @@ export function apply(ctx, config) {
           profileDir,
           cwd,
           memoryRoots,
+          workspaces: workspacePaths(),
           patchFiles,
           patchPath: profilePatch,
           extraSkillRoots,
+          extraPatchFiles,
           profileInferred,
         }),
       )

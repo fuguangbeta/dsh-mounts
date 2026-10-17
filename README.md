@@ -14,7 +14,8 @@ dsh-mounts 是 DeepSeek Harness 的只读侧栏面板，将当前 profile 的挂
 面板的用途限于确认配置内容，不判定其是否生效：补丁中存在 MCP 行，不代表对应进程正在运行；
 技能出现在列表中，不代表本轮已加载。
 
-记忆库一栏读取固定路径 `~/.zcode/cli/memories/projects/`，路径存在时列出文件，否则整栏省略。
+记忆库一栏由两部分组成：各工作区内名为 `memory` 的目录（`<工作区>/memory`、`.dsh/memory`、`.agents/memory`），
+以及 `memoryRoots` 配置的目录（默认为空）。两者都没有时，整栏省略。
 DSH 不读取该目录；DSH 自动注入的内容为各工作区的 `AGENTS.md` 与 `AGENTS.local.md`，
 归入「预规定」一栏。
 
@@ -27,7 +28,8 @@ in five groups on one page. It registers no tools, adds nothing to the context, 
 does not use the network; installing it does not change the prompt the model receives. Its purpose is
 to report what is configured, not whether it is active: an MCP row in the patch does not imply a
 running process, and a listed skill was not necessarily loaded this turn. The memory-library group
-reads a fixed path, `~/.zcode/cli/memories/projects/`, and is omitted when that path is absent;
+combines named `memory` directories found inside each workspace with any directories listed in
+`memoryRoots` (empty by default), and is omitted when neither yields a library;
 DSH does not read it, and what DSH injects are the `AGENTS.md` and `AGENTS.local.md` files
 of each workspace, reported in the first group. File contents are never read: the memory libraries are
 only `stat`-ed and skills contribute the description line from their frontmatter. Reading a file
@@ -74,7 +76,7 @@ The scope is read-only presentation.
 | 栏 | 来源 | 展开后 |
 |------|------|------|
 | 预规定 | `~/.dsh/AGENTS.md`，以及项目根至当前目录链上的四个候选文件 | 各文件的 `##` 章节标题 |
-| 记忆库 | `~/.zcode/cli/memories/projects/*/memory/` | 库列表，文件列表（名称、大小、日期） |
+| 记忆库 | 工作区内 `<ws>/memory`、`.dsh/memory`、`.agents/memory`，以及 `memoryRoots` 配置的目录（默认空） | 按组列出库与文件（名称、大小、日期） |
 | 技能 | 四个扫描根：项目 `.dsh/skills`、项目 `.agents/skills`、用户 `~/.dsh/skills`、用户 `~/.agents/skills`，以及配置的 `extraSkillRoots` | 描述全文、文件路径、来源根 |
 | MCP 服务器 | profile 补丁 + 全局补丁层 + `extraPatchFiles` 中的 `dsh-mcp-client` 行 | 补丁行 id、env 变量名、目标、所属预设 |
 | 智能体预设 | profile 补丁 + 全局补丁层 + `extraPatchFiles` 中的预设行，以及内置的 `standard`、`ptc`、`minimal`、`cordis` | 补丁行、标题 |
@@ -82,7 +84,7 @@ The scope is read-only presentation.
 | Group | Source | Expanded |
 |------|------|------|
 | Instructions | `~/.dsh/AGENTS.md` plus the four candidate files from the project root down to the working directory | The `##` headings of each file |
-| Memory libraries | `~/.zcode/cli/memories/projects/*/memory/` | Library list, then file list (name, size, date) |
+| Memory libraries | Workspace `<ws>/memory`, `.dsh/memory`, `.agents/memory`, plus directories configured in `memoryRoots` (empty by default) | Libraries and files grouped, with name, size, date |
 | Skills | Four scan roots: project `.dsh/skills`, project `.agents/skills`, user `~/.dsh/skills`, user `~/.agents/skills`, plus configured `extraSkillRoots` | Full description, file path, source root |
 | MCP servers | `dsh-mcp-client` rows in the profile patch, the global patch layer, and `extraPatchFiles` | Patch row id, env variable names, target, owning preset |
 | Agent presets | Preset rows in the profile patch, the global patch layer, and `extraPatchFiles`, plus the built-in `standard`, `ptc`, `minimal`, `cordis` | Patch row, title |
@@ -142,22 +144,22 @@ so the module is imported again.
 
 ### 3.3 配置 · *Configuration*
 
-记忆库路径默认为 `~/.zcode/cli/memories/projects`，可在 DSH 设置页的插件配置中修改：
+记忆库默认只从各工作区内的 `memory` 目录发现。如需加入其他位置，在 DSH 设置页的插件配置中填写：
 
 | 键 | 类型 | 默认值 | 说明 |
 |------|------|------|------|
-| `memoryRoots` | string[] | `["~/.zcode/cli/memories/projects"]` | 记忆库根目录列表。每个根下的直接子目录各算一个库；若根下直接有 .md 文件，则根本身算一个库 |
+| `memoryRoots` | string[] | `[]` | 记忆库根目录列表（默认空）。每个根下的直接子目录算一个库；同名库合并为一组；同名文件保留修改时间较新的一份 |
 | `extraSkillRoots` | string[] | `[]` | 额外技能根目录。每个直接子目录含 SKILL.md 或 `<名字>.md` 即算一个技能 |
 | `extraPatchFiles` | string[] | `[]` | 额外补丁文件，用于补充 MCP 与智能体预设 |
 
 路径可以写 `~`，会被展开为 home。
 
-*The memory-library root defaults to `~/.zcode/cli/memories/projects` and can be changed in the
+*Memory libraries are discovered from named `memory` directories inside each workspace. Additional
 plugin configuration on the DSH settings page:*
 
 | Key | Type | Default | Description |
 |------|------|------|------|
-| `memoryRoots` | string[] | `["~/.zcode/cli/memories/projects"]` | Memory-library roots. Each direct child directory counts as one library; if a root contains `.md` files directly, the root itself counts as one library |
+| `memoryRoots` | string[] | `[]` | Memory-library roots (empty by default). Each direct child directory counts as one library; same-name libraries merge into one group, and same-name files keep the newest copy |
 | `extraSkillRoots` | string[] | `[]` | Extra skill roots. Each direct child directory containing `SKILL.md` or `<name>.md` counts as one skill |
 | `extraPatchFiles` | string[] | `[]` | Extra patch files, used to add MCP servers and Agent Presets |
 
@@ -197,6 +199,7 @@ re-validated on the Host side.
 |------|------|
 | 面板只读 | 不提供编辑、启停与删除 |
 | 内置预设只能看到名称 | 其定义不在 profile 补丁里，面板读不到，因此不能展开 |
+| 只识别名为 memory 的目录 | 不做模糊匹配；名字不同的记忆目录需要用 memoryRoots 指定 |
 | 技能描述最多 1000 字 | 超出部分以省略号结尾 |
 | 工作区取最近更新的一个 | 可能不是当前会话所在的工作区 |
 | 不标示当前会话使用的预设 | 只列出已定义的预设，不判断哪一个正在生效 |
@@ -208,6 +211,7 @@ re-validated on the Host side.
 |------|------|
 | Read-only | No editing, toggling, or deleting |
 | Built-in presets show names only | Their definitions are not in the profile patch, so the panel cannot read or expand them |
+| Only directories named memory are recognised | No fuzzy matching; use memoryRoots for differently named memory directories |
 | Skill descriptions are capped at 1000 characters | Longer ones end with an ellipsis |
 | The workspace is the most recently updated one | It may not be the workspace of the current session |
 | The preset in use by a session is not marked | Only defined presets are listed; which one is active is not determined |
