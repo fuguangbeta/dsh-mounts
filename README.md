@@ -40,6 +40,8 @@ The scope is read-only presentation.*
 
 ### 1.1 初始状态 · *Initial State*
 
+面板在打开时的状态：
+
 ```
 挂载清单  [只读]  [刷新]
 这个 profile 实际挂载了什么：预规定 · 记忆库 · 技能 · MCP · 智能体预设
@@ -50,6 +52,8 @@ The scope is read-only presentation.*
 ▸ MCP 服务器 (3)
 ▸ 智能体预设 (5)
 ```
+
+*The panel in its initial state.*
 
 ### 1.2 记忆库展开至文件级 · *Library Expanded to Files*
 
@@ -63,7 +67,7 @@ The scope is read-only presentation.*
    ▸ …
 ```
 
-两图为示意，数据非实测。
+两图为示意，数据非实测。*Both figures are illustrative; the data is not measured.*
 
 ### 1.3 栏目与数据来源 · *Groups and Data Sources*
 
@@ -74,6 +78,14 @@ The scope is read-only presentation.*
 | 技能 | 四个扫描根：项目 `.dsh/skills`、项目 `.agents/skills`、用户 `~/.dsh/skills`、用户 `~/.agents/skills` | 描述全文、文件路径、来源根 |
 | MCP 服务器 | profile 补丁中的 `dsh-mcp-client` 行 | 补丁行 id、env 变量名、目标 |
 | 智能体预设 | profile 自定义预设，以及内置的 `standard`、`ptc`、`minimal`、`cordis` | 补丁行、标题 |
+
+| Group | Source | Expanded |
+|------|------|------|
+| Instructions | `~/.dsh/AGENTS.md` plus the four candidate files from the project root down to the working directory | The `##` headings of each file |
+| Memory libraries | `~/.zcode/cli/memories/projects/*/memory/` | Library list, then file list (name, size, date) |
+| Skills | Four scan roots: project `.dsh/skills`, project `.agents/skills`, user `~/.dsh/skills`, user `~/.agents/skills` | Full description, file path, source root |
+| MCP servers | `dsh-mcp-client` rows in the profile patch | Patch row id, env variable names, target |
+| Agent presets | Profile-defined presets plus the built-in `standard`, `ptc`, `minimal`, `cordis` | Patch row, title |
 
 ---
 
@@ -86,7 +98,15 @@ The scope is read-only presentation.*
 | L3 | 点击条目 | 该条目自身的字段 |
 | L3+ | 点击记忆库的库标题 | 文件列表，每行可「打开」 |
 
+| Level | Trigger | Content |
+|------|------|------|
+| L1 | Opening the panel | The five group titles and their counts |
+| L2 | Clicking a group title | The entries of that group |
+| L3 | Clicking an entry | The fields of that entry |
+| L3+ | Clicking a memory-library title | The file list, each row openable |
+
 初始状态停留在 L1。展开内容仅涉及被展开条目自身的字段。
+*The initial state rests at L1. An expansion only ever shows the fields of the expanded entry itself.*
 
 ---
 
@@ -103,10 +123,21 @@ The scope is read-only presentation.*
 profile 的 `package.json` 与 `cordis.patch.yml` 由 `install_bundle` 维护。手工修改
 或于 profile 目录执行 pnpm 均不符合官方流程。
 
+*Creator mode (the `cordis` preset) is required, as it provides `plugin_manager`. Place the
+repository in any workspace, by clone or by GitHub's Download ZIP; npm is not involved. Call
+`install_bundle` with `target` set to the absolute path of this package, then inspect the
+returned `application` and `warnings`. The profile's `package.json` and
+`cordis.patch.yml` are maintained by `install_bundle`; editing them by hand, or running pnpm
+inside the profile directory, is outside the official procedure.*
+
 ### 3.2 代码改动生效方式 · *Applying Code Changes*
 
 客户端依赖（`client.js`）改动通过硬刷新（Ctrl+Shift+R）生效。Host 侧依赖（`index.js`）
 改动需以 `plugin_manager` 将 `include:mounts-panel` 关→开，触发模块重新 import。
+
+*Client-side changes (`client.js`) take effect on a hard refresh (Ctrl+Shift+R). Host-side changes
+(`index.js`) require toggling `include:mounts-panel` off and on through `plugin_manager`
+so the module is imported again.*
 
 ---
 
@@ -122,6 +153,18 @@ profile 的 `package.json` 与 `cordis.patch.yml` 由 `install_bundle` 维护。
 
 「打开」不新建端点，使用 DSH 现有的 Session Remote，路径由 Host 侧复核。
 
+- *No files are written, no subprocess is started, no outbound request is made.*
+- *One HTTP endpoint is exposed: `GET /dsh-mounts/api`.*
+- *It accepts only a loopback `Host` header (`127.0.0.1`, `localhost`, `[::1]`) and
+  returns 403 otherwise, which blocks DNS rebinding.*
+- *It accepts only GET and HEAD and returns 405 otherwise; responses carry `Cache-Control: no-store`.*
+- *It does not accept a `cwd` parameter.*
+- *It returns no file contents: memory libraries are only `stat`-ed and skills contribute the
+  frontmatter description.*
+
+*The "Open" action creates no endpoint; it uses DSH's existing Session Remote and the path is
+re-validated on the Host side.*
+
 ---
 
 ## 5. 已知限制 · *Known Limitations*
@@ -135,6 +178,16 @@ profile 的 `package.json` 与 `cordis.patch.yml` 由 `install_bundle` 维护。
 | 工作区取注册表中最新的一个 | 无会话级绑定 | 可能与当前会话所在工作区不同 |
 | 「打开」依赖 Session Remote | 不新建端点 | 不可用时降级为「复制路径」 |
 | 不标示当前预设 | 注册表仅存全局默认值 | 该列表不表示当前会话所用预设 |
+
+| Limitation | Cause | Effect |
+|------|------|------|
+| Built-in presets show names only | They are defined inside the bundle (`app.asar`), unreadable to third parties | Only ids are listed; they cannot be expanded |
+| The memory-library path is fixed | Only `~/.zcode/cli/memories/projects/` is recognised | The group is omitted when absent; other locations are not detected |
+| Skill descriptions are capped at 400 characters | To bound the response size | Longer ones end with an ellipsis |
+| The MCP preset column is derived from counts | The API exposes no MCP-to-preset mapping | Left blank when no unique match exists |
+| The workspace is the most recently updated in the registry | There is no session-level binding | It may differ from the workspace of the current session |
+| "Open" depends on the Session Remote | No endpoint is added | It degrades to "Copy path" when unavailable |
+| The current preset is not marked | The registry holds only a global default | The list does not indicate the preset a session uses |
 
 ---
 
@@ -151,6 +204,9 @@ profile 的 `package.json` 与 `cordis.patch.yml` 由 `install_bundle` 维护。
 读盘文本先做 `\r\n?` 到 `\n` 的规范化。CRLF 的 `SKILL.md` 会使 frontmatter 解析静默失败，
 description 退化为空字符串。
 
+*Text read from disk is normalised from `\r\n?` to `\n` first. A CRLF `SKILL.md` makes
+frontmatter parsing fail silently and the description degrade to an empty string.*
+
 ---
 
 ## 系统要求 · *System Requirements*
@@ -164,8 +220,14 @@ description 退化为空字符串。
 | 平台 | Windows 已验证，其余未测试 |
 | 第三方依赖 | 无 |
 
-DeepSeek Harness 0.2.1-rc.2 or later. Installation requires Creator mode; everyday use does not.
-Windows is verified; other platforms are untested. No third-party dependencies.
+| Item | Requirement |
+|------|------|
+| DSH | >= 0.2.1-rc.2 |
+| Installation | Creator mode (the `cordis` preset) |
+| Everyday use | Creator mode not required |
+| Client services | `remote`, `remote.session`, `connection`, `locale` |
+| Platform | Windows verified; other platforms untested |
+| Third-party dependencies | None |
 
 ---
 
@@ -187,14 +249,31 @@ Windows is verified; other platforms are untested. No third-party dependencies.
 **为何不提供正文预览。**
 正文预览需要在端点中开放文件读取，而该端点仅以 Host 头作准入控制，不做会话鉴权。故仅提供「打开」。
 
+***The sidebar shows no "挂载清单" after installation.*** *Confirm that `install_bundle` returned
+`application: applied`. If it is applied but still invisible, perform a hard refresh
+(Ctrl+Shift+R); if that fails, restart DSH.*
+
+***The interface does not change after a code edit.*** *See §3.2.*
+
+***The displayed workspace is not the one of the current session.*** *The panel takes the most recently
+updated workspace in the registry and has no session-level binding. See §5.*
+
+***"Open" appears as "Copy path".*** *The page cannot reach the Session Remote, which is the expected
+degradation. Clicking places the full path on the clipboard.*
+
+***Why is there no inline preview of file contents?*** *A preview would require opening file reads on the
+endpoint, which is admitted only by the Host header and carries no session authentication. The "Open"
+action is provided instead.*
+
 ---
 
 ## 许可 · *License*
 
-MIT，见 [LICENSE](LICENSE)。
+MIT，见 [LICENSE](LICENSE)。*MIT, see [LICENSE](LICENSE).*
 
 ---
 
 ## 反馈 · *Feedback*
 
 问题请提交 issue，附 DSH 版本与复现步骤。
+*Please open an issue, including the DSH version and reproduction steps.*
