@@ -48,6 +48,9 @@ async function loadSchemastery() {
 
 const z = await loadSchemastery()
 
+// 注意：bundle 通过 include 插入的行，其 config 无法从 profile 的表单写入
+// （mutate 会被接受后静默丢弃，实测 2026-10-17）。这里保留读取是为了让
+// 愿意直接改本 bundle 的 cordis.patch.yml 的安装者仍能注入配置。
 export const Config = z
   ? z.object({
       memoryRoots: z.array(z.string()).default([]),

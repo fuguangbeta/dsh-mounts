@@ -14,27 +14,27 @@ dsh-mounts 是 DeepSeek Harness 的只读侧栏面板，将当前 profile 的挂
 面板的用途限于确认配置内容，不判定其是否生效：补丁中存在 MCP 行，不代表对应进程正在运行；
 技能出现在列表中，不代表本轮已加载。
 
-记忆库一栏由两部分组成：各工作区内名为 `memory` 的目录（`<工作区>/memory`、`.dsh/memory`、`.agents/memory`），
-以及 `memoryRoots` 配置的目录（默认为空）。两者都没有时，该栏显示一行说明，不会隐藏。
+记忆库一栏只从各工作区内的 `memory` 目录发现（`<工作区>/memory`、`.dsh/memory`、`.agents/memory`）；
+都没有时该栏显示一行说明，不会隐藏。
 DSH 不读取该目录；DSH 自动注入的内容为各工作区的 `AGENTS.md` 与 `AGENTS.local.md`，
 归入「预规定」一栏。
 
 面板不读取文件内容。记忆库仅取 `stat` 元数据，技能仅取 frontmatter 中的 description。
 查看正文使用每行的「打开」，交由系统默认程序处理；该操作使用 DSH 内置的 Session Remote，
-不可用时降级为「复制路径」。面板不修改你的文件。唯一的写操作是它自己的三个配置项，通过 DSH 的配置服务写入。
+不可用时降级为「复制路径」。面板不修改任何文件，也不提供任何设置项。
 
 This is a read-only sidebar panel for DeepSeek Harness. It presents the mounts of the current profile
 in five groups on one page. It registers no tools, adds nothing to the context, writes no files, and
 does not use the network; installing it does not change the prompt the model receives. Its purpose is
 to report what is configured, not whether it is active: an MCP row in the patch does not imply a
 running process, and a listed skill was not necessarily loaded this turn. The memory-library group
-combines named `memory` directories found inside each workspace with any directories listed in
-`memoryRoots` (empty by default); an explanatory line is shown when neither yields a library;
+discovers named `memory` directories inside each workspace (`<ws>/memory`, `.dsh/memory`,
+`.agents/memory`); an explanatory line is shown when none yields a library;
 DSH does not read it, and what DSH injects are the `AGENTS.md` and `AGENTS.local.md` files
 of each workspace, reported in the first group. File contents are never read: the memory libraries are
 only `stat`-ed and skills contribute the description line from their frontmatter. Reading a file
 is delegated to the system default application through DSH's Session Remote, with a copy-path fallback.
-The panel does not modify your files. Its only write is its own three configuration fields, through DSH's configuration service.
+The panel does not modify any file and offers no settings.
 
 ---
 
@@ -78,18 +78,18 @@ The panel does not modify your files. Its only write is its own three configurat
 | 栏 | 来源 | 展开后 |
 |------|------|------|
 | 预规定 | `~/.dsh/AGENTS.md`，以及项目根至当前目录链上的四个候选文件 | 各文件的 `##` 章节标题 |
-| 记忆库 | 工作区内 `<ws>/memory`、`.dsh/memory`、`.agents/memory`，以及 `memoryRoots` 配置的目录（默认空） | 按组列出库与文件（名称、大小、日期） |
-| 技能 | 四个扫描根：项目 `.dsh/skills`、项目 `.agents/skills`、用户 `~/.dsh/skills`、用户 `~/.agents/skills`，以及配置的 `extraSkillRoots` | 描述全文、文件路径、来源根 |
-| MCP 服务器 | profile 补丁 + 全局补丁层 + `extraPatchFiles` 中的 `dsh-mcp-client` 行 | 补丁行 id、env 变量名、目标、所属预设 |
-| 智能体预设 | profile 补丁 + 全局补丁层 + `extraPatchFiles` 中的预设行，以及内置的 `standard`、`ptc`、`minimal`、`cordis` | 补丁行、标题 |
+| 记忆库 | 工作区内 `<ws>/memory`、`.dsh/memory`、`.agents/memory` | 按组列出库与文件（名称、大小、日期） |
+| 技能 | 四个扫描根：项目 `.dsh/skills`、项目 `.agents/skills`、用户 `~/.dsh/skills`、用户 `~/.agents/skills` | 描述全文、文件路径、来源根 |
+| MCP 服务器 | profile 补丁 + 全局补丁层中的 `dsh-mcp-client` 行 | 补丁行 id、env 变量名、目标、所属预设 |
+| 智能体预设 | profile 补丁 + 全局补丁层中的预设行，以及内置的 `standard`、`ptc`、`minimal`、`cordis` | 补丁行、标题 |
 
 | Group | Source | Expanded |
 |------|------|------|
 | Instructions | `~/.dsh/AGENTS.md` plus the four candidate files from the project root down to the working directory | The `##` headings of each file |
-| Memory libraries | Workspace `<ws>/memory`, `.dsh/memory`, `.agents/memory`, plus directories configured in `memoryRoots` (empty by default) | Libraries and files grouped, with name, size, date |
-| Skills | Four scan roots: project `.dsh/skills`, project `.agents/skills`, user `~/.dsh/skills`, user `~/.agents/skills`, plus configured `extraSkillRoots` | Full description, file path, source root |
-| MCP servers | `dsh-mcp-client` rows in the profile patch, the global patch layer, and `extraPatchFiles` | Patch row id, env variable names, target, owning preset |
-| Agent presets | Preset rows in the profile patch, the global patch layer, and `extraPatchFiles`, plus the built-in `standard`, `ptc`, `minimal`, `cordis` | Patch row, title |
+| Memory libraries | Workspace `<ws>/memory`, `.dsh/memory`, `.agents/memory` | Libraries and files grouped, with name, size, date |
+| Skills | Four scan roots: project `.dsh/skills`, project `.agents/skills`, user `~/.dsh/skills`, user `~/.agents/skills` | Full description, file path, source root |
+| MCP servers | `dsh-mcp-client` rows in the profile patch and the global patch layer | Patch row id, env variable names, target, owning preset |
+| Agent presets | Preset rows in the profile patch and the global patch layer, plus the built-in `standard`, `ptc`, `minimal`, `cordis` | Patch row, title |
 
 ---
 
@@ -144,29 +144,6 @@ Client-side changes (`client.js`) take effect on a hard refresh (Ctrl+Shift+R). 
 (`index.js`) require toggling `include:mounts-panel` off and on through `plugin_manager`
 so the module is imported again.
 
-### 3.3 配置 · *Configuration*
-
-记忆库默认只从各工作区内的 `memory` 目录发现。如需加入其他位置，在 DSH 设置页的插件配置中填写：
-
-| 键 | 类型 | 默认值 | 说明 |
-|------|------|------|------|
-| `memoryRoots` | string[] | `[]` | 记忆库根目录列表（默认空）。每个根下的直接子目录算一个库；同名库合并为一组；同名文件保留修改时间较新的一份 |
-| `extraSkillRoots` | string[] | `[]` | 额外技能根目录。每个直接子目录含 SKILL.md 或 `<名字>.md` 即算一个技能 |
-| `extraPatchFiles` | string[] | `[]` | 额外补丁文件，用于补充 MCP 与智能体预设 |
-
-路径可以写 `~`，会被展开为 home。这三个配置项也可以直接在面板顶部的「设置」里编辑。
-
-*Memory libraries are discovered from named `memory` directories inside each workspace. Additional
-plugin configuration on the DSH settings page:*
-
-| Key | Type | Default | Description |
-|------|------|------|------|
-| `memoryRoots` | string[] | `[]` | Memory-library roots (empty by default). Each direct child directory counts as one library; same-name libraries merge into one group, and same-name files keep the newest copy |
-| `extraSkillRoots` | string[] | `[]` | Extra skill roots. Each direct child directory containing `SKILL.md` or `<name>.md` counts as one skill |
-| `extraPatchFiles` | string[] | `[]` | Extra patch files, used to add MCP servers and Agent Presets |
-
-*A leading `~` is expanded to the home directory. These three settings can also be edited from the panel's “Settings” button.*
-
 ---
 
 ## 4. 安全模型 · *Security Model*
@@ -181,11 +158,7 @@ plugin configuration on the DSH settings page:*
 
 「打开」不新建端点，使用 DSH 现有的 Session Remote，路径由 Host 侧复核。
 
-唯一的写入路径是 DSH 已有的 settings Remote，只作用于本插件自己的配置命名空间
-（`dsh-mounts#mounts-panel`）；不新增端点，不写其他任何文件。
-
-- *No files are written, no subprocess is started, no outbound request is made.* (The panel's
-  configuration write goes through DSH's configuration service; see the next bullet.)
+- *No files are written, no subprocess is started, no outbound request is made.*
 - *One HTTP endpoint is exposed: `GET /dsh-mounts/api`.*
 - *It accepts only a loopback `Host` header (`127.0.0.1`, `localhost`, `[::1]`) and
   returns 403 otherwise, which blocks DNS rebinding.*
@@ -197,9 +170,6 @@ plugin configuration on the DSH settings page:*
 The "Open" action creates no endpoint; it uses DSH's existing Session Remote and the path is
 re-validated on the Host side.
 
-The only write path is DSH's existing settings Remote, scoped to this plugin's own configuration
-namespace (`dsh-mounts#mounts-panel`); no endpoint is added and no other file is written.
-
 ---
 
 ## 5. 已知限制 · *Known Limitations*
@@ -208,26 +178,28 @@ namespace (`dsh-mounts#mounts-panel`); no endpoint is added and no other file is
 |------|------|
 | 面板只读 | 不提供编辑、启停与删除 |
 | 内置预设只能看到名称 | 其定义不在 profile 补丁里，面板读不到，因此不能展开 |
-| 只识别名为 memory 的目录 | 不做模糊匹配；名字不同的记忆目录需要用 memoryRoots 指定 |
-| 记忆库默认不包含任何目录 | 只从工作区内的 memory/ 与 memoryRoots 发现；首次使用通常是空的，需要配置 |
+| 只识别名为 memory 的目录 | 不做模糊匹配 |
+| 记忆库默认不包含任何目录 | 只从工作区内的 memory/ 发现 |
 | 技能描述最多 1000 字 | 超出部分以省略号结尾 |
 | 工作区取最近更新的一个 | 可能不是当前会话所在的工作区 |
 | 不标示当前会话使用的预设 | 只列出已定义的预设，不判断哪一个正在生效 |
 | 不列 bundle 内置技能 | 内置技能分散在各 bundle 内，无法统一枚举；只显示文件系统上的技能 |
-| 不自动读取 customSkillDirs | 该配置属于另一个插件；需要时用 extraSkillRoots 手动补 |
+| 不自动读取 customSkillDirs | 该配置属于另一个插件 |
+| 没有设置界面 | DSH 配置无法写入 include 插入的行；记忆库只从工作区 memory/ 目录发现 |
 | 「打开」在部分环境下降级为「复制路径」 | 属预期行为，点击后完整路径进入剪贴板 |
 
 | Limitation | Note |
 |------|------|
 | Read-only | No editing, toggling, or deleting |
 | Built-in presets show names only | Their definitions are not in the profile patch, so the panel cannot read or expand them |
-| Only directories named memory are recognised | No fuzzy matching; use memoryRoots for differently named memory directories |
-| Memory libraries are empty by default | Discovered only from workspace memory/ directories and memoryRoots; a first run is usually empty until configured |
+| Only directories named memory are recognised | No fuzzy matching |
+| Memory libraries are empty by default | Discovered only from workspace memory/ directories |
 | Skill descriptions are capped at 1000 characters | Longer ones end with an ellipsis |
 | The workspace is the most recently updated one | It may not be the workspace of the current session |
 | The preset in use by a session is not marked | Only defined presets are listed; which one is active is not determined |
 | Bundle-embedded skills are not listed | They are spread across bundles and cannot be enumerated uniformly; only skills on the filesystem are shown |
-| `customSkillDirs` is not read automatically | That setting belongs to another plugin; use `extraSkillRoots` when needed |
+| `customSkillDirs` is not read automatically | That setting belongs to another plugin |
+| No settings UI | DSH settings cannot write a row inserted by include; memory libraries come only from workspace memory/ directories |
 | "Open" degrades to "Copy path" in some environments | Expected behaviour; clicking places the full path on the clipboard |
 
 ---
@@ -247,6 +219,11 @@ description 退化为空字符串。
 
 Text read from disk is normalised from `\r\n?` to `\n` first. A CRLF `SKILL.md` makes
 frontmatter parsing fail silently and the description degrade to an empty string.
+
+如需注入配置，可直接改本 bundle 的 `cordis.patch.yml` 的 `config`（仅对本机安装有效，不建议提交）。
+
+To inject configuration, edit the `config` of this bundle's own `cordis.patch.yml`
+(local installs only; not recommended for commits).
 
 ---
 

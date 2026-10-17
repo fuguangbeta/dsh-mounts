@@ -20,19 +20,6 @@ window.__ModuleLoader__.load({
       'panel.subtitle': '这个 profile 实际挂载了什么：记忆链、技能、MCP 与 Agent Preset。',
       'panel.readonly': '只读',
       'panel.refresh': '刷新',
-      'panel.settings': '设置',
-      'settings.title': '插件配置',
-      'settings.memoryRoots': '记忆库根目录',
-      'settings.extraSkillRoots': '额外技能根目录',
-      'settings.extraPatchFiles': '额外补丁文件',
-      'settings.hint.memoryRoots': '每个根下的直接子目录算一个库；同名库合并为一组',
-      'settings.hint.extraSkillRoots': '路径本身含 SKILL.md 也算一个技能',
-      'settings.hint.extraPatchFiles': '标准 cordis.patch.yml 文件',
-      'settings.save': '保存',
-      'settings.cancel': '取消',
-      'settings.saving': '正在应用配置…',
-      'settings.unavailable': '此环境无法保存配置',
-      'settings.failed': '保存失败：',
       'panel.loading': '读取中…',
       'panel.error': '读取失败',
       'panel.retry': '重试',
@@ -67,7 +54,7 @@ window.__ModuleLoader__.load({
       'detail.openFailed': '打开失败：系统默认程序没有接受这个文件',
       'rules.empty': '未找到 AGENTS.md 或 AGENTS.local.md。',
       'memory.empty': '未发现记忆库。',
-      'memory.emptyHint': '把记忆文件放在工作区的 memory/ 目录，或在插件配置里设置 memoryRoots。',
+      'memory.emptyHint': '把记忆文件放在工作区的 memory/ 目录（<工作区>/memory、.dsh/memory、.agents/memory）。',
       'skills.empty': '未发现技能。',
       'skills.project': '项目',
       'skills.custom': '自定义',
@@ -82,19 +69,6 @@ window.__ModuleLoader__.load({
       'panel.subtitle': 'What this profile actually mounts: memory chain, skills, MCP servers, and Agent Presets.',
       'panel.readonly': 'Read-only',
       'panel.refresh': 'Refresh',
-      'panel.settings': 'Settings',
-      'settings.title': 'Plugin configuration',
-      'settings.memoryRoots': 'Memory roots',
-      'settings.extraSkillRoots': 'Extra skill roots',
-      'settings.extraPatchFiles': 'Extra patch files',
-      'settings.hint.memoryRoots': 'Each direct child directory counts as one library; same-name libraries merge into one group',
-      'settings.hint.extraSkillRoots': 'A path containing SKILL.md counts as one skill',
-      'settings.hint.extraPatchFiles': 'A standard cordis.patch.yml file',
-      'settings.save': 'Save',
-      'settings.cancel': 'Cancel',
-      'settings.saving': 'Applying…',
-      'settings.unavailable': 'Configuration cannot be saved in this environment',
-      'settings.failed': 'Save failed: ',
       'panel.loading': 'Reading…',
       'panel.error': 'Failed to read',
       'panel.retry': 'Retry',
@@ -129,7 +103,7 @@ window.__ModuleLoader__.load({
       'detail.openFailed': 'Open failed: the default application did not accept this file',
       'rules.empty': 'No AGENTS.md or AGENTS.local.md found.',
       'memory.empty': 'No memory stores found.',
-      'memory.emptyHint': 'Put memory files in a workspace memory/ directory, or set memoryRoots in the plugin configuration.',
+      'memory.emptyHint': 'Put memory files in a workspace memory/ directory (<ws>/memory, .dsh/memory, .agents/memory).',
       'skills.empty': 'No skills found.',
       'skills.project': 'Project',
       'skills.custom': 'Custom',
@@ -152,15 +126,6 @@ window.__ModuleLoader__.load({
 .dmp-btn{appearance:none;border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-primary);border-radius:8px;padding:5px 12px;font-size:12px;line-height:18px;cursor:pointer;font-family:inherit;}
 .dmp-btn:hover{border-color:var(--dsw-alias-border-l2);}
 .dmp-btn:disabled{opacity:.55;cursor:default;}
-.dmp-config{margin-top:16px;border:1px solid var(--dsw-alias-border-l1);border-radius:12px;background:var(--dsw-alias-bg-layer-1);padding:14px 16px;}
-.dmp-config-title{font-size:13px;font-weight:600;}
-.dmp-field{margin-top:10px;}
-.dmp-field-label{font-size:12px;font-weight:500;}
-.dmp-field-input{display:block;width:100%;box-sizing:border-box;margin-top:4px;min-height:64px;resize:vertical;border:1px solid var(--dsw-alias-border-l1);border-radius:8px;background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-primary);font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:11.5px;line-height:1.6;padding:6px 8px;}
-.dmp-field-input:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:-1px;}
-.dmp-field-hint{margin-top:3px;font-size:11px;line-height:1.5;color:var(--dsw-alias-label-secondary);}
-.dmp-config-actions{display:flex;gap:8px;margin-top:12px;}
-.dmp-config-error{margin-top:8px;font-size:11.5px;color:var(--dsw-alias-state-error-primary);}
 .dmp-meta{display:flex;align-items:baseline;gap:20px;margin-top:16px;font-size:12px;color:var(--dsw-alias-label-secondary);white-space:nowrap;overflow:hidden;}
 .dmp-meta-item{display:flex;align-items:baseline;gap:6px;min-width:0;}
 .dmp-meta-key{flex:none;}
@@ -358,45 +323,32 @@ window.__ModuleLoader__.load({
         const translate = (key) => dictFor(ctx.locale.getLocale().active)[key] || key
 
         // "Open on the Host desktop" belongs to DSH's own Session Remote. The
-        // declared-service posture is `ctx.inject(['remote', 'remote.session'])`:
-        // the callback fires once those services exist, so nothing touches an
-        // unready proxy at apply time (that mistake once cost the sidebar).
+        // declared-service posture is an inject list: the callback fires once
+        // those services exist, so nothing touches an unready proxy at apply
+        // time (that mistake once cost the sidebar).
         // A raw `connection.rpc` call is the same fallback dsh-context uses.
         let sessionRemote = null
-        let settingsRemoteService = null
         try {
           ctx.inject(['remote', 'remote.session'], (inner) => {
             try {
               const session = inner.remote && inner.remote.session
               if (session && typeof session.openWorkspacePath === 'function') sessionRemote = session
-              const settings = inner.remote && inner.remote.settings
-              if (settings && typeof settings.mutate === 'function' && typeof settings.describe === 'function') {
-                settingsRemoteService = settings
-              }
             } catch {
               sessionRemote = null
-              settingsRemoteService = null
             }
             return () => {
               sessionRemote = null
-              settingsRemoteService = null
             }
           })
         } catch {
           sessionRemote = null
-          settingsRemoteService = null
         }
 
-        const settingsRemote = () => {
-          try {
-            if (settingsRemoteService) return settingsRemoteService
-            const remote = typeof ctx.get === 'function' ? ctx.get('remote') : null
-            const settings = remote && remote.settings
-            return settings && typeof settings.mutate === 'function' ? settings : null
-          } catch {
-            return null
-          }
-        }
+        // Configuration writes are intentionally absent: DSH settings cannot
+        // persist config into a row that a bundle inserts via `include` (the
+        // mutate is accepted and silently dropped), so a settings UI here would
+        // lie. The Host still reads config for installers that edit this
+        // bundle's own cordis.patch.yml.
 
         const remoteSession = () => {
           try {
@@ -472,17 +424,6 @@ window.__ModuleLoader__.load({
           const [notice, setNotice] = React.useState(null)
           const [openError, setOpenError] = React.useState(null)
           const [canOpen, setCanOpen] = React.useState(false)
-          const [canConfigure, setCanConfigure] = React.useState(false)
-          const [settingsOpen, setSettingsOpen] = React.useState(false)
-          const [settingsBusy, setSettingsBusy] = React.useState(false)
-          const [settingsError, setSettingsError] = React.useState(null)
-          const [settingsRevision, setSettingsRevision] = React.useState(undefined)
-          const [settingsNs, setSettingsNs] = React.useState('dsh-mounts#mounts-panel')
-          const [settingsForm, setSettingsForm] = React.useState({
-            memoryRoots: '',
-            extraSkillRoots: '',
-            extraPatchFiles: '',
-          })
           const data = inventory.data
 
           // Detect the opener after mount, never during apply: touching the Remote
@@ -492,7 +433,6 @@ window.__ModuleLoader__.load({
             const check = () => {
               if (!live) return
               if (remoteSession() || connectionRpc()) setCanOpen(true)
-              if (settingsRemote()) setCanConfigure(true)
             }
             check()
             const timer = setTimeout(check, 600)
@@ -509,73 +449,6 @@ window.__ModuleLoader__.load({
           const toggleBlock = (id) => setOpenBlocks((previous) => ({ ...previous, [id]: !previous[id] }))
           const toggleStore = (id) => setOpenStores((previous) => ({ ...previous, [id]: !previous[id] }))
           const toggleRow = (id) => setOpenRows((previous) => ({ ...previous, [id]: !previous[id] }))
-
-          const openSettings = async () => {
-            if (settingsOpen) {
-              setSettingsOpen(false)
-              return
-            }
-            setSettingsOpen(true)
-            setSettingsError(null)
-            const base = (data && data.config) || {}
-            const joined = (value) => (Array.isArray(value) ? value.join('\n') : '')
-            setSettingsForm({
-              memoryRoots: joined(base.memoryRoots),
-              extraSkillRoots: joined(base.extraSkillRoots),
-              extraPatchFiles: joined(base.extraPatchFiles),
-            })
-            setSettingsRevision(undefined)
-            const settings = settingsRemote()
-            if (!settings || typeof settings.describe !== 'function') return
-            try {
-              const descriptors = await settings.describe({ redactSecrets: true })
-              const list = Array.isArray(descriptors) ? descriptors : []
-              const target =
-                list.find((entry) => entry && entry.ns === 'dsh-mounts#mounts-panel') ||
-                list.find((entry) => entry && typeof entry.ns === 'string' && entry.ns.endsWith('#mounts-panel')) ||
-                list.find((entry) => entry && entry.value && Array.isArray(entry.value.memoryRoots))
-              if (!target) return
-              setSettingsNs(target.ns)
-              if (typeof target.revision === 'number') setSettingsRevision(target.revision)
-              const value = target.value || {}
-              setSettingsForm({
-                memoryRoots: joined(value.memoryRoots),
-                extraSkillRoots: joined(value.extraSkillRoots),
-                extraPatchFiles: joined(value.extraPatchFiles),
-              })
-            } catch (error) {
-              setSettingsError(t('settings.failed') + String((error && error.message) || error))
-            }
-          }
-
-          const saveSettings = async () => {
-            const settings = settingsRemote()
-            if (!settings || !canConfigure) {
-              setSettingsError(t('settings.unavailable'))
-              return
-            }
-            setSettingsBusy(true)
-            setSettingsError(null)
-            const split = (text) =>
-              String(text || '')
-                .split(/\r?\n/)
-                .map((line) => line.trim())
-                .filter(Boolean)
-            try {
-              const ops = [
-                { op: 'set', path: ['memoryRoots'], value: split(settingsForm.memoryRoots) },
-                { op: 'set', path: ['extraSkillRoots'], value: split(settingsForm.extraSkillRoots) },
-                { op: 'set', path: ['extraPatchFiles'], value: split(settingsForm.extraPatchFiles) },
-              ]
-              await settings.mutate(settingsNs, ops, settingsRevision)
-              setSettingsOpen(false)
-              inventory.reload()
-            } catch (error) {
-              setSettingsError(t('settings.failed') + String((error && (error.message || error.code)) || error))
-            } finally {
-              setSettingsBusy(false)
-            }
-          }
 
           const copyPath = (target) => {
             setOpenError(null)
@@ -1047,17 +920,6 @@ window.__ModuleLoader__.load({
                     {
                       className: 'dmp-btn',
                       type: 'button',
-                      onClick: openSettings,
-                      disabled: !canConfigure,
-                      title: canConfigure ? '' : t('settings.unavailable'),
-                    },
-                    t('panel.settings'),
-                  ),
-                  h(
-                    'button',
-                    {
-                      className: 'dmp-btn',
-                      type: 'button',
                       onClick: inventory.reload,
                       disabled: inventory.status === 'loading',
                     },
@@ -1065,59 +927,6 @@ window.__ModuleLoader__.load({
                   ),
                 ),
               ),
-              settingsOpen
-                ? h(
-                    'div',
-                    { className: 'dmp-config' },
-                    h('div', { className: 'dmp-config-title' }, t('settings.title')),
-                    [
-                      ['memoryRoots', 'settings.memoryRoots', 'settings.hint.memoryRoots'],
-                      ['extraSkillRoots', 'settings.extraSkillRoots', 'settings.hint.extraSkillRoots'],
-                      ['extraPatchFiles', 'settings.extraPatchFiles', 'settings.hint.extraPatchFiles'],
-                    ].map(([key, labelKey, hintKey]) =>
-                      h(
-                        'div',
-                        { className: 'dmp-field', key },
-                        h('div', { className: 'dmp-field-label' }, t(labelKey)),
-                        h('textarea', {
-                          className: 'dmp-field-input',
-                          rows: 3,
-                          spellCheck: false,
-                          value: settingsForm[key],
-                          onChange: (event) =>
-                            setSettingsForm((previous) => ({ ...previous, [key]: event.target.value })),
-                        }),
-                        h('div', { className: 'dmp-field-hint' }, t(hintKey)),
-                      ),
-                    ),
-                    settingsError ? h('div', { className: 'dmp-config-error' }, settingsError) : null,
-                    !canConfigure ? h('div', { className: 'dmp-config-error' }, t('settings.unavailable')) : null,
-                    h(
-                      'div',
-                      { className: 'dmp-config-actions' },
-                      h(
-                        'button',
-                        {
-                          className: 'dmp-btn',
-                          type: 'button',
-                          onClick: saveSettings,
-                          disabled: settingsBusy || !canConfigure,
-                        },
-                        settingsBusy ? t('settings.saving') : t('settings.save'),
-                      ),
-                      h(
-                        'button',
-                        {
-                          className: 'dmp-btn',
-                          type: 'button',
-                          onClick: () => setSettingsOpen(false),
-                          disabled: settingsBusy,
-                        },
-                        t('settings.cancel'),
-                      ),
-                    ),
-                  )
-                : null,
               body,
             ),
           )
