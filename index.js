@@ -10,8 +10,51 @@
  * It never writes a file, never spawns a process, and never reaches a network.
  */
 import { readdirSync, readFileSync, statSync } from 'node:fs'
+import { createRequire } from 'node:module'
 import { homedir } from 'node:os'
 import path from 'node:path'
+
+/**
+ * A linked bundle lives outside the profile, so a bare `@deepseek-ai/*` import
+ * does not resolve from its real path. Try the normal specifier first, then the
+ * installation's own copy (the Host process can load from app.asar).
+ */
+async function loadSchemastery() {
+  try {
+    const mod = await import('@deepseek-ai/schemastery')
+    if (mod && mod.default) return mod.default
+  } catch {
+    /* fall through to the installation copy */
+  }
+  try {
+    const requireFromHere = createRequire(import.meta.url)
+    const candidates = [
+      path.join(path.dirname(process.execPath), 'resources', 'app.asar', 'dsh', 'node_modules', '@deepseek-ai', 'schemastery'),
+      path.join(path.dirname(process.execPath), 'resources', 'app.asar.unpacked', 'dsh', 'node_modules', '@deepseek-ai', 'schemastery'),
+    ]
+    for (const dir of candidates) {
+      try {
+        const mod = requireFromHere(dir)
+        if (mod) return mod.default || mod
+      } catch {
+        /* keep trying */
+      }
+    }
+  } catch {
+    /* no installation copy available */
+  }
+  return null
+}
+
+const z = await loadSchemastery()
+
+export const Config = z
+  ? z.object({
+      memoryRoots: z.array(z.string()).default(['~/.zcode/cli/memories/projects']),
+      extraSkillRoots: z.array(z.string()).default([]),
+      extraPatchFiles: z.array(z.string()).default([]),
+    })
+  : undefined
 
 /** The Web server owns the route table; stay inactive where it is absent. */
 export const inject = ['webServer']
@@ -22,6 +65,13 @@ const ROUTE = '/dsh-mounts/api'
 const RULE_FILES = ['AGENTS.md', 'CLAUDE.md', 'AGENTS.local.md', 'CLAUDE.local.md']
 const MCP_PACKAGE = '@deepseek-ai/dsh-mcp-client'
 const PRESET_PACKAGE = '@deepseek-ai/dsh-agent-preset'
+
+/**
+ * Presets shipped inside the dsh bundle. Their definitions live in app.asar, so
+ * the Host cannot read them; the list is hard-coded. Re-check it after a DSH
+ * upgrade — a renamed preset would otherwise go stale here.
+ */
+const BUILTIN_PRESETS = ['standard', 'ptc', 'minimal', 'cordis']
 
 function readText(file) {
   try {
@@ -104,7 +154,7 @@ function skillsIn(root, rank, label) {
       label,
       dir: entry,
       name: meta.name || entry,
-      desc: capText(meta.description, 400),
+      desc: capText(meta.description, 1000),
       bytes: fileSize(hit),
       path: hit,
     })
@@ -175,7 +225,7 @@ function patchRows(file) {
       if (current === indent && line.trimStart().startsWith('- id:')) break
       end += 1
     }
-    return { id, block: lines.slice(start + 1, end).join('\n') }
+    return { id, indent, block: lines.slice(start + 1, end).join('\n') }
   })
 }
 
@@ -207,88 +257,139 @@ function rowOf(block, pkg) {
   return new RegExp("name:\\s*['\"]" + pkg.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + "['\"]").test(first)
 }
 
-function scanPresetRows(patchFile) {
+function scanPresetRows(patchFiles) {
   const mcp = []
   const presets = []
   let registry = { default: null, selectedDefault: null }
-  for (const { id, block } of patchRows(patchFile)) {
-    if (rowOf(block, MCP_PACKAGE)) {
-      mcp.push({
-        row: id,
-        server: grab(block, 'serverName'),
-        transport: grab(block, 'transport'),
-        target: grab(block, 'url') || grab(block, 'command'),
-        env: [...block.matchAll(/^\s+([A-Z_][A-Z0-9_]*):/gm)].map((match) => match[1]),
-      })
-    } else if (rowOf(block, PRESET_PACKAGE)) {
-      const config = configBlock(block)
-      const presetId = /^\s*id:\s*(\S+)\s*$/m.exec(config)
-      const title = /^\s*name:\s*(.+?)\s*$/m.exec(config)
-      presets.push({
-        row: id,
-        id: presetId ? presetId[1] : '?',
-        title: title ? unquote(title[1]) : '',
-        mcp: block.split('dsh-mcp-client').length - 1,
-      })
-    } else if (firstLine(block).includes('dsh-agent-preset-registry')) {
-      const preset = (name) => {
-        const match = new RegExp('^\\s*' + name + ':\\s*(\\S+)\\s*$', 'm').exec(block)
-        return match ? match[1] : null
+  const seen = new Set()
+  for (const patchFile of patchFiles) {
+    // Attribution only holds inside one file: an MCP row is nested under the
+    // preset row that declares it in `config.plugins`. Track that nesting with
+    // the row indentation, and reset it for every file.
+    const stack = []
+    for (const { id, indent, block } of patchRows(patchFile)) {
+      while (stack.length && stack[stack.length - 1].indent >= indent) stack.pop()
+      // Layering: earlier files win, so the global layer (listed first) beats a
+      // profile row with the same id.
+      if (seen.has(id)) continue
+      seen.add(id)
+      if (rowOf(block, MCP_PACKAGE)) {
+        mcp.push({
+          row: id,
+          server: grab(block, 'serverName'),
+          transport: grab(block, 'transport'),
+          target: grab(block, 'url') || grab(block, 'command'),
+          env: [...block.matchAll(/^\s+([A-Z_][A-Z0-9_]*):/gm)].map((match) => match[1]),
+          presetId: stack.length ? stack[stack.length - 1].presetId : '',
+          presetRow: stack.length ? stack[stack.length - 1].rowId : '',
+        })
+      } else if (rowOf(block, PRESET_PACKAGE)) {
+        const config = configBlock(block)
+        const presetId = /^\s*id:\s*(\S+)\s*$/m.exec(config)
+        const title = /^\s*name:\s*(.+?)\s*$/m.exec(config)
+        const preset = {
+          row: id,
+          id: presetId ? presetId[1] : '?',
+          title: title ? unquote(title[1]) : '',
+          mcp: block.split('dsh-mcp-client').length - 1,
+        }
+        presets.push(preset)
+        stack.push({ indent, presetId: preset.id, rowId: id })
+      } else if (firstLine(block).includes('dsh-agent-preset-registry')) {
+        const preset = (name) => {
+          const match = new RegExp('^\\s*' + name + ':\\s*(\\S+)\\s*$', 'm').exec(block)
+          return match ? match[1] : null
+        }
+        registry = { default: preset('default'), selectedDefault: preset('selectedDefault') }
       }
-      registry = { default: preset('default'), selectedDefault: preset('selectedDefault') }
     }
   }
   return { mcp, presets, registry }
 }
 
 /**
- * Independent memory stores under `<home>/.zcode/cli/memories/projects/*\/memory`.
- * One directory is one store: its `.md` files up to 200, stat only, never content.
- * Stores sort by file count descending, then name ascending.
+ * One memory root, expanded: a leading `~` becomes home, a missing root is
+ * skipped. A root holding `.md` files directly is a library itself; otherwise
+ * each direct child is one — its `memory/` folder when that exists, else the
+ * child itself. Files are `stat`-ed only, up to 200 per library.
  */
-function memoryStores() {
-  const root = path.join(homedir(), '.zcode', 'cli', 'memories', 'projects')
-  if (!isDirectory(root)) return []
+function expandHome(value) {
+  const text = String(value || '').trim()
+  if (!text) return ''
+  if (text === '~') return homedir()
+  if (text.startsWith('~/') || text.startsWith('~\\')) return path.join(homedir(), text.slice(2))
+  return text
+}
+
+function markdownFiles(dir) {
   let entries
   try {
-    entries = readdirSync(root)
+    entries = readdirSync(dir)
   } catch {
     return []
   }
-  const stores = []
-  for (const name of entries) {
-    const dir = path.join(root, name, 'memory')
-    if (!isDirectory(dir)) continue
-    let files
+  const items = []
+  for (const file of entries) {
+    if (!file.toLowerCase().endsWith('.md')) continue
+    const full = path.join(dir, file)
+    let info
     try {
-      files = readdirSync(dir)
+      info = statSync(full)
     } catch {
       continue
     }
-    const items = []
-    for (const file of files) {
-      if (!file.toLowerCase().endsWith('.md')) continue
-      const full = path.join(dir, file)
-      let info
-      try {
-        info = statSync(full)
-      } catch {
+    if (!info.isFile()) continue
+    items.push({ name: file, bytes: info.size, mtime: new Date(info.mtimeMs).toISOString() })
+    if (items.length >= 200) break
+  }
+  items.sort((a, b) => a.name.localeCompare(b.name))
+  return items
+}
+
+function makeStore(name, dir) {
+  const files = markdownFiles(dir)
+  if (!files.length) return null
+  const latest = files.reduce((newest, item) => (item.mtime > newest ? item.mtime : newest), '')
+  return { name, dir, count: files.length, latest, files }
+}
+
+function memoryStores(roots) {
+  const stores = []
+  for (const raw of roots || []) {
+    const root = expandHome(raw)
+    if (!root || !isDirectory(root)) continue
+
+    const own = makeStore(path.basename(root) || root, root)
+    if (own) {
+      stores.push(own)
+      continue
+    }
+
+    let children
+    try {
+      children = readdirSync(root)
+    } catch {
+      continue
+    }
+    for (const child of children) {
+      const childDir = path.join(root, child)
+      if (!isDirectory(childDir)) continue
+      const memoryDir = path.join(childDir, 'memory')
+      const nested = isDirectory(memoryDir) ? makeStore(child, memoryDir) : null
+      if (nested) {
+        stores.push(nested)
         continue
       }
-      if (!info.isFile()) continue
-      items.push({ name: file, bytes: info.size, mtime: new Date(info.mtimeMs).toISOString() })
-      if (items.length >= 200) break
+      const flat = makeStore(child, childDir)
+      if (flat) stores.push(flat)
     }
-    items.sort((a, b) => a.name.localeCompare(b.name))
-    const latest = items.reduce((newest, item) => (item.mtime > newest ? item.mtime : newest), '')
-    stores.push({ name, dir, count: items.length, latest, files: items })
   }
   stores.sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
   return stores
 }
 
-function scan({ dshHome, profileName, profileDir, cwd }) {
-  const patch = path.join(profileDir, 'cordis.patch.yml')
+function scan({ dshHome, profileName, profileDir, cwd, memoryRoots, patchFiles, patchPath, extraSkillRoots, profileInferred }) {
+  const patch = patchPath || path.join(profileDir, 'cordis.patch.yml')
   const project = locateProject(cwd)
   const globalFile = path.join(dshHome, 'AGENTS.md')
   const globalText = readText(globalFile)
@@ -307,11 +408,29 @@ function scan({ dshHome, profileName, profileDir, cwd }) {
   }
   skills.sort((a, b) => a.rank - b.rank || a.name.localeCompare(b.name))
 
-  const { mcp, presets, registry } = scanPresetRows(patch)
+  for (const raw of extraSkillRoots || []) {
+    const root = expandHome(raw)
+    if (!root || !isDirectory(root)) continue
+    const { found, exists } = skillsIn(root, 350, '自定义')
+    skillRoots.push({ label: '自定义', root, rank: 350, exists, count: found.length })
+    skills.push(...found)
+  }
+  skills.sort((a, b) => a.rank - b.rank || a.name.localeCompare(b.name))
+
+  const { mcp, presets, registry } = scanPresetRows(patchFiles)
+
+  const warnings = []
+  if (!mcp.length) warnings.push('未识别到 dsh-mcp-client 行，可能是 DSH 版本变更')
 
   return {
     generatedAt: new Date().toISOString(),
-    profile: { name: profileName, dir: profileDir, patch, patchExists: isFile(patch) },
+    profile: {
+      name: profileName,
+      dir: profileDir,
+      patch,
+      patchExists: isFile(patch),
+      inferred: Boolean(profileInferred),
+    },
     workspace: {
       cwd,
       projectRoot: project.root,
@@ -324,20 +443,40 @@ function scan({ dshHome, profileName, profileDir, cwd }) {
       sections: globalText ? headings(globalText).slice(0, 12) : [],
     },
     chain: memoryChain(project.root, cwd),
-    memory: memoryStores(),
+    memory: memoryStores(memoryRoots),
     skillRoots,
     skills,
     mcp,
     presets,
     registry,
+    builtins: BUILTIN_PRESETS,
+    warnings,
   }
 }
 
-export function apply(ctx) {
+export function apply(ctx, config) {
+  const memoryRoots =
+    config && Array.isArray(config.memoryRoots) && config.memoryRoots.length
+      ? config.memoryRoots
+      : ['~/.zcode/cli/memories/projects']
+  const extraSkillRoots = config && Array.isArray(config.extraSkillRoots) ? config.extraSkillRoots : []
+  const extraPatchFiles = config && Array.isArray(config.extraPatchFiles) ? config.extraPatchFiles : []
   const home = homedir()
   const dshHome = process.env.DSH_HOME || path.join(home, '.dsh')
-  const profileName = process.env.DSH_PROFILE || 'desktop'
-  const profileDir = process.env.DSH_PROFILE_DIR || path.join(dshHome, 'profiles', profileName)
+  const envProfileName = process.env.DSH_PROFILE
+  const envProfileDir = process.env.DSH_PROFILE_DIR
+  let profileName
+  let profileInferred = false
+  if (envProfileName) profileName = envProfileName
+  else if (envProfileDir) profileName = path.basename(envProfileDir)
+  else {
+    profileName = 'desktop'
+    profileInferred = true
+  }
+  const profileDir = envProfileDir || path.join(dshHome, 'profiles', profileName)
+  const globalPatch = path.join(dshHome, 'cordis.patch.yml')
+  const profilePatch = path.join(profileDir, 'cordis.patch.yml')
+  const patchFiles = [globalPatch, profilePatch, ...extraPatchFiles.map(expandHome)].filter((file) => isFile(file))
 
   const defaultCwd = () => {
     try {
@@ -375,7 +514,19 @@ export function apply(ctx) {
         return
       }
       const cwd = defaultCwd()
-      const body = JSON.stringify(scan({ dshHome, profileName, profileDir, cwd }))
+      const body = JSON.stringify(
+        scan({
+          dshHome,
+          profileName,
+          profileDir,
+          cwd,
+          memoryRoots,
+          patchFiles,
+          patchPath: profilePatch,
+          extraSkillRoots,
+          profileInferred,
+        }),
+      )
       res.statusCode = 200
       res.setHeader('content-type', 'application/json; charset=utf-8')
       res.setHeader('cache-control', 'no-store')

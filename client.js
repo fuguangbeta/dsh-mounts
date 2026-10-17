@@ -27,6 +27,7 @@ window.__ModuleLoader__.load({
       'meta.project': '项目根',
       'meta.workspaceIsProject': '工作区 = 项目根',
       'meta.patch': '补丁',
+      'meta.inferred': '（推断）',
       'meta.git': '含 .git',
       'meta.noGit': '无 .git',
       'section.rules': '预规定',
@@ -53,6 +54,7 @@ window.__ModuleLoader__.load({
       'rules.empty': '项目链上没有 AGENTS.md / AGENTS.local.md',
       'skills.empty': '没有发现技能',
       'skills.project': '项目',
+      'skills.custom': '自定义',
       'mcp.empty': '这个 profile 没有 MCP 行',
       'preset.empty': '这个 profile 没有额外 preset',
       'preset.builtinRow': '内置 preset（来自 bundle，不可展开）',
@@ -71,6 +73,7 @@ window.__ModuleLoader__.load({
       'meta.project': 'Project',
       'meta.workspaceIsProject': 'Workspace = Project',
       'meta.patch': 'Patch',
+      'meta.inferred': '(inferred)',
       'meta.git': 'has .git',
       'meta.noGit': 'no .git',
       'section.rules': 'Instructions',
@@ -97,6 +100,7 @@ window.__ModuleLoader__.load({
       'rules.empty': 'No AGENTS.md / AGENTS.local.md on the project chain',
       'skills.empty': 'No skills found',
       'skills.project': 'Project',
+      'skills.custom': 'Custom',
       'mcp.empty': 'This profile declares no MCP row',
       'preset.empty': 'This profile declares no extra preset',
       'preset.builtinRow': 'Built-in preset (from the bundle, not expandable)',
@@ -164,6 +168,7 @@ window.__ModuleLoader__.load({
 .dmp-item-meta{flex:none;font-size:11.5px;color:var(--dsw-alias-label-secondary);font-variant-numeric:tabular-nums;white-space:nowrap;text-align:right;max-width:220px;overflow:hidden;text-overflow:ellipsis;}
 .dmp-mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;}
 .dmp-empty{padding:12px 16px;font-size:12px;color:var(--dsw-alias-label-secondary);}
+.dmp-warning{padding:8px 16px;font-size:11px;line-height:1.6;color:var(--dsw-alias-state-warn-primary);border-top:1px solid var(--dsw-alias-border-l1);}
 .dmp-foot{margin-top:18px;display:flex;flex-wrap:wrap;gap:6px 16px;font-size:11.5px;color:var(--dsw-alias-label-secondary);}
 `
 
@@ -486,6 +491,7 @@ window.__ModuleLoader__.load({
             const servers = data.mcp || []
             const presets = data.presets || []
             const memory = data.memory || []
+            const warnings = Array.isArray(data.warnings) ? data.warnings : []
             const memoryFiles = memory.reduce((sum, store) => sum + store.count, 0)
             const workspace = data.workspace || {}
             const profile = data.profile || {}
@@ -567,13 +573,12 @@ window.__ModuleLoader__.load({
             const projectBase = String(workspace.projectRoot || '').replace(/\\/g, '/')
             const rootDisplay = (root) => {
               const full = String(root.root || '').replace(/\\/g, '/')
-              if (root.rank < 400) {
-                const relative =
-                  projectBase && full.toLowerCase().startsWith(projectBase.toLowerCase())
-                    ? full.slice(projectBase.length).replace(/^\//, '')
-                    : full
-                return t('skills.project') + ' ' + relative
-              }
+              const relative =
+                projectBase && full.toLowerCase().startsWith(projectBase.toLowerCase())
+                  ? full.slice(projectBase.length).replace(/^\//, '')
+                  : full
+              if (root.rank === 350) return t('skills.custom') + ' ' + relative
+              if (root.rank < 400) return t('skills.project') + ' ' + relative
               return home && full.toLowerCase().startsWith(home.toLowerCase()) ? '~' + full.slice(home.length) : full
             }
             const skillIndex = new Map(skills.map((skill, index) => [skill.path, index]))
@@ -612,9 +617,6 @@ window.__ModuleLoader__.load({
                   )
                 : skills.map(skillRow)
 
-            const carriers = presets.filter((preset) => preset.mcp === servers.length)
-            const carrier = carriers.length === 1 ? carriers[0] : null
-
             const mcpRows = servers.map((server, index) => {
               const rowId = 'mcp-' + index
               return h(Row, {
@@ -622,7 +624,7 @@ window.__ModuleLoader__.load({
                 id: rowId,
                 name: (server.server || server.row) + ' · ' + (server.transport || '?'),
                 secondary: server.target || '—',
-                meta: carrier ? carrier.id : '',
+                meta: server.presetId || '',
                 expandable: true,
                 open: Boolean(openRows[rowId]),
                 onToggle: () => toggleRow(rowId),
@@ -636,7 +638,10 @@ window.__ModuleLoader__.load({
 
             // Built-in presets ship with the bundle and are not in the profile
             // patch. Keep the hard-coded list in its fixed order.
-            const BUILTIN_PRESETS = ['standard', 'ptc', 'minimal', 'cordis']
+            const BUILTIN_PRESETS =
+              Array.isArray(data.builtins) && data.builtins.length
+                ? data.builtins
+                : ['standard', 'ptc', 'minimal', 'cordis']
 
             const presetRows = [
               ...presets.map((preset, index) => {
@@ -714,6 +719,7 @@ window.__ModuleLoader__.load({
                   h('span', { className: 'dmp-meta-key' }, t('meta.patch')),
                   h('b', { className: 'dmp-meta-value' }, String(profile.patch || '').split(/[\\/]/).pop() || '—'),
                   h(Chip, { tone: profile.patchExists ? 'ok' : 'warn' }, profile.patchExists ? '✓' : '·'),
+                  profile.inferred ? h(Chip, null, t('meta.inferred')) : null,
                 ),
               ),
               h(
@@ -823,7 +829,14 @@ window.__ModuleLoader__.load({
                   open: Boolean(openBlocks.mcp),
                   onToggle: () => toggleBlock('mcp'),
                 },
-                mcpRows.length ? mcpRows : h('div', { className: 'dmp-empty' }, t('mcp.empty')),
+                h(
+                  React.Fragment,
+                  null,
+                  mcpRows.length ? mcpRows : h('div', { className: 'dmp-empty' }, t('mcp.empty')),
+                  warnings.map((warning, index) =>
+                    h('div', { className: 'dmp-warning', key: 'warning-' + index }, warning),
+                  ),
+                ),
               ),
               h(
                 Block,

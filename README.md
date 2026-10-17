@@ -75,17 +75,17 @@ The scope is read-only presentation.
 |------|------|------|
 | 预规定 | `~/.dsh/AGENTS.md`，以及项目根至当前目录链上的四个候选文件 | 各文件的 `##` 章节标题 |
 | 记忆库 | `~/.zcode/cli/memories/projects/*/memory/` | 库列表，文件列表（名称、大小、日期） |
-| 技能 | 四个扫描根：项目 `.dsh/skills`、项目 `.agents/skills`、用户 `~/.dsh/skills`、用户 `~/.agents/skills` | 描述全文、文件路径、来源根 |
-| MCP 服务器 | profile 补丁中的 `dsh-mcp-client` 行 | 补丁行 id、env 变量名、目标 |
-| 智能体预设 | profile 自定义预设，以及内置的 `standard`、`ptc`、`minimal`、`cordis` | 补丁行、标题 |
+| 技能 | 四个扫描根：项目 `.dsh/skills`、项目 `.agents/skills`、用户 `~/.dsh/skills`、用户 `~/.agents/skills`，以及配置的 `extraSkillRoots` | 描述全文、文件路径、来源根 |
+| MCP 服务器 | profile 补丁 + 全局补丁层 + `extraPatchFiles` 中的 `dsh-mcp-client` 行 | 补丁行 id、env 变量名、目标、所属预设 |
+| 智能体预设 | profile 补丁 + 全局补丁层 + `extraPatchFiles` 中的预设行，以及内置的 `standard`、`ptc`、`minimal`、`cordis` | 补丁行、标题 |
 
 | Group | Source | Expanded |
 |------|------|------|
 | Instructions | `~/.dsh/AGENTS.md` plus the four candidate files from the project root down to the working directory | The `##` headings of each file |
 | Memory libraries | `~/.zcode/cli/memories/projects/*/memory/` | Library list, then file list (name, size, date) |
-| Skills | Four scan roots: project `.dsh/skills`, project `.agents/skills`, user `~/.dsh/skills`, user `~/.agents/skills` | Full description, file path, source root |
-| MCP servers | `dsh-mcp-client` rows in the profile patch | Patch row id, env variable names, target |
-| Agent presets | Profile-defined presets plus the built-in `standard`, `ptc`, `minimal`, `cordis` | Patch row, title |
+| Skills | Four scan roots: project `.dsh/skills`, project `.agents/skills`, user `~/.dsh/skills`, user `~/.agents/skills`, plus configured `extraSkillRoots` | Full description, file path, source root |
+| MCP servers | `dsh-mcp-client` rows in the profile patch, the global patch layer, and `extraPatchFiles` | Patch row id, env variable names, target, owning preset |
+| Agent presets | Preset rows in the profile patch, the global patch layer, and `extraPatchFiles`, plus the built-in `standard`, `ptc`, `minimal`, `cordis` | Patch row, title |
 
 ---
 
@@ -140,6 +140,29 @@ Client-side changes (`client.js`) take effect on a hard refresh (Ctrl+Shift+R). 
 (`index.js`) require toggling `include:mounts-panel` off and on through `plugin_manager`
 so the module is imported again.
 
+### 3.3 配置 · *Configuration*
+
+记忆库路径默认为 `~/.zcode/cli/memories/projects`，可在 DSH 设置页的插件配置中修改：
+
+| 键 | 类型 | 默认值 | 说明 |
+|------|------|------|------|
+| `memoryRoots` | string[] | `["~/.zcode/cli/memories/projects"]` | 记忆库根目录列表。每个根下的直接子目录各算一个库；若根下直接有 .md 文件，则根本身算一个库 |
+| `extraSkillRoots` | string[] | `[]` | 额外技能根目录。每个直接子目录含 SKILL.md 或 `<名字>.md` 即算一个技能 |
+| `extraPatchFiles` | string[] | `[]` | 额外补丁文件，用于补充 MCP 与智能体预设 |
+
+路径可以写 `~`，会被展开为 home。
+
+*The memory-library root defaults to `~/.zcode/cli/memories/projects` and can be changed in the
+plugin configuration on the DSH settings page:*
+
+| Key | Type | Default | Description |
+|------|------|------|------|
+| `memoryRoots` | string[] | `["~/.zcode/cli/memories/projects"]` | Memory-library roots. Each direct child directory counts as one library; if a root contains `.md` files directly, the root itself counts as one library |
+| `extraSkillRoots` | string[] | `[]` | Extra skill roots. Each direct child directory containing `SKILL.md` or `<name>.md` counts as one skill |
+| `extraPatchFiles` | string[] | `[]` | Extra patch files, used to add MCP servers and Agent Presets |
+
+*A leading `~` is expanded to the home directory.*
+
 ---
 
 ## 4. 安全模型 · *Security Model*
@@ -170,25 +193,27 @@ re-validated on the Host side.
 
 ## 5. 已知限制 · *Known Limitations*
 
-| 限制 | 原因 | 影响 |
-|------|------|------|
-| 内置预设仅显示名称 | 定义位于 bundle（`app.asar`）内，第三方不可读 | 仅列出 id，不可展开 |
-| 记忆库路径固定 | 仅识别 `~/.zcode/cli/memories/projects/` | 路径缺失时整栏省略；其他位置不被识别 |
-| 技能描述上限 400 字 | 控制响应体积 | 超限时末尾加省略号 |
-| MCP 的预设列由数量推导 | API 未提供 MCP 与预设的映射 | 无法唯一推导时留空 |
-| 工作区取注册表中最新的一个 | 无会话级绑定 | 可能与当前会话所在工作区不同 |
-| 「打开」依赖 Session Remote | 不新建端点 | 不可用时降级为「复制路径」 |
-| 不标示当前预设 | 注册表仅存全局默认值 | 该列表不表示当前会话所用预设 |
+| 限制 | 说明 |
+|------|------|
+| 面板只读 | 不提供编辑、启停与删除 |
+| 内置预设只能看到名称 | 其定义不在 profile 补丁里，面板读不到，因此不能展开 |
+| 技能描述最多 1000 字 | 超出部分以省略号结尾 |
+| 工作区取最近更新的一个 | 可能不是当前会话所在的工作区 |
+| 不标示当前会话使用的预设 | 只列出已定义的预设，不判断哪一个正在生效 |
+| 不列 bundle 内置技能 | 内置技能分散在各 bundle 内，无法统一枚举；只显示文件系统上的技能 |
+| 不自动读取 customSkillDirs | 该配置属于另一个插件；需要时用 extraSkillRoots 手动补 |
+| 「打开」在部分环境下降级为「复制路径」 | 属预期行为，点击后完整路径进入剪贴板 |
 
-| Limitation | Cause | Effect |
-|------|------|------|
-| Built-in presets show names only | They are defined inside the bundle (`app.asar`), unreadable to third parties | Only ids are listed; they cannot be expanded |
-| The memory-library path is fixed | Only `~/.zcode/cli/memories/projects/` is recognised | The group is omitted when absent; other locations are not detected |
-| Skill descriptions are capped at 400 characters | To bound the response size | Longer ones end with an ellipsis |
-| The MCP preset column is derived from counts | The API exposes no MCP-to-preset mapping | Left blank when no unique match exists |
-| The workspace is the most recently updated in the registry | There is no session-level binding | It may differ from the workspace of the current session |
-| "Open" depends on the Session Remote | No endpoint is added | It degrades to "Copy path" when unavailable |
-| The current preset is not marked | The registry holds only a global default | The list does not indicate the preset a session uses |
+| Limitation | Note |
+|------|------|
+| Read-only | No editing, toggling, or deleting |
+| Built-in presets show names only | Their definitions are not in the profile patch, so the panel cannot read or expand them |
+| Skill descriptions are capped at 1000 characters | Longer ones end with an ellipsis |
+| The workspace is the most recently updated one | It may not be the workspace of the current session |
+| The preset in use by a session is not marked | Only defined presets are listed; which one is active is not determined |
+| Bundle-embedded skills are not listed | They are spread across bundles and cannot be enumerated uniformly; only skills on the filesystem are shown |
+| `customSkillDirs` is not read automatically | That setting belongs to another plugin; use `extraSkillRoots` when needed |
+| "Open" degrades to "Copy path" in some environments | Expected behaviour; clicking places the full path on the clipboard |
 
 ---
 
