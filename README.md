@@ -76,30 +76,24 @@ Ideal if you want to confirm what you have configured. Not for reading files, ed
 
 ## 五块内容 · *The Five Sections*
 
-**预规定** —— 全局 `~/.dsh/AGENTS.md`，以及项目根到当前目录这条链上的
-`AGENTS.md` / `CLAUDE.md` / `AGENTS.local.md` / `CLAUDE.local.md`。
-展开能看到每份文件的 `##` 章节标题。
-
-**记忆库** —— `~/.zcode/cli/memories/projects/*/memory/` 下的每个目录各自算一个库。
-点库标头展开文件列表，每行是「文件名 · 大小 · 修改日期」，右侧可「打开」。
-
-**技能** —— 四个扫描根，按优先级排列：项目 `.dsh/skills` → 项目 `.agents/skills` →
-用户 `~/.dsh/skills` → 用户 `~/.agents/skills`。展开能看到完整描述、文件路径、来源根。
-
-**MCP 服务器** —— profile 补丁里的 `dsh-mcp-client` 行。展开能看到补丁行 id、env 变量名、
-完整的目标命令或 URL。
-
-**智能体预设** —— profile 里自己定义的预设，加上内置的 `standard` / `ptc` /
-`minimal` / `cordis`。当前在用的标「当前」，部署默认的标「部署默认」。
+| 块 | 从哪来 | 展开后看到 |
+|------|------|------|
+| **预规定** | `~/.dsh/AGENTS.md` + 项目根到当前目录链上的四个候选文件 | 每份文件的 `##` 章节标题 |
+| **记忆库** | `~/.zcode/cli/memories/projects/*/memory/` | 库列表 → 文件列表（名字 · 大小 · 日期） |
+| **技能** | 四个扫描根：项目 `.dsh/skills` → 项目 `.agents/skills` → 用户 `~/.dsh/skills` → 用户 `~/.agents/skills` | 完整描述、文件路径、来源根 |
+| **MCP 服务器** | profile 补丁里的 `dsh-mcp-client` 行 | 补丁行 id、env 变量名、目标 |
+| **智能体预设** | profile 自定义的 + 内置 `standard/ptc/minimal/cordis` | 补丁行、标题 |
 
 ## 折叠与详情 · *Folding and Details*
 
-打开面板时五块**全部折叠**，只显示五行标题——先告诉你"有几块、各多少"，而不是一上来铺满屏幕。
+| 层级 | 点哪里 | 看到什么 |
+|------|------|------|
+| L1 | 打开面板 | 五个块标题 + 各自的计数 |
+| L2 | 块标题 | 该块的条目列表 |
+| L3 | 条目 | 该条目自己的字段 |
+| L3+ | 记忆库的库标头 | 文件列表，每行可「打开」 |
 
-点块标题展开条目，点条目展开它**自己的**字段。所有展开都只涉及该条目自身的信息，
-**不会去索引别处的文件**。
-
-「记忆库」比别的块多一层：块 → 库 → 文件。
+打开时全部停在 L1，**默认什么都不展开**。所有展开都只涉及条目自身的信息，不会去索引别处的文件。
 
 ---
 
@@ -141,31 +135,29 @@ Ideal if you want to confirm what you have configured. Not for reading files, ed
 
 ## 已知限制 · *Known Limitations*
 
-**内置预设只有名字。** 它们定义在 bundle 里（`app.asar` 内），第三方插件读不到内容，所以只能列出 id，不能展开。
-
-**记忆库路径是写死的。** 只认 `~/.zcode/cli/memories/projects/`，别的工具的记忆库不会被发现。
-
-**技能描述上限 400 字。** 超过的会在末尾加「…」。
-
-**MCP 的预设列是推导的。** 取「MCP 数 == 服务器总数」的那个预设，推不出来就留空。
-API 里没有 MCP→预设 的映射，要精确得在 Host 侧按补丁子树归属。
-
-**工作区是猜的。** 取 workspace 注册表里 `updatedAt` 最新的一个，不是会话级精确绑定。
-切换工作区后，显示的可能不是当前会话所在的那个。
-
-**「打开」依赖 Session Remote。** 拿不到时会显示「复制路径」。
+| 限制 | 原因 | 影响 |
+|------|------|------|
+| 内置预设只有名字 | 定义在 bundle（`app.asar`）内，第三方读不到 | 只能显示 id，不能展开 |
+| 记忆库路径写死 | 只认 `~/.zcode/cli/memories/projects/` | 别的工具的记忆库不会出现 |
+| 技能描述上限 400 字 | 控制响应体积 | 超长时末尾加「…」 |
+| MCP 的预设列是推导的 | API 没有 MCP→预设 的映射 | 推不出来就留空 |
+| 工作区是猜的 | 取注册表里 `updatedAt` 最新的那个 | 可能不是你当前会话所在的 |
+| 「打开」依赖 Session Remote | 不自建端点 | 拿不到时降级为「复制路径」 |
 
 ---
 
 ## 系统要求 · *System Requirements*
 
-- **DeepSeek Harness >= 0.2.1-rc.2**
-- 安装时需要 **Creator 模式**（`cordis` preset）；日常使用不需要
-- Client 侧依赖四个 DSH 客户端服务：`remote` / `remote.session` / `connection` / `locale`
-- Windows 优先（路径与「打开」行为按 Windows 验证）；其余平台未测试
-- 无任何第三方依赖
+| 项 | 要求 |
+|------|------|
+| **DSH** | >= 0.2.1-rc.2 |
+| **安装** | 需要 Creator 模式（`cordis` preset） |
+| **日常使用** | 不需要 Creator 模式 |
+| **客户端服务** | `remote` / `remote.session` / `connection` / `locale` |
+| **平台** | Windows 已验证，其余未测试 |
+| **第三方依赖** | 无 |
 
-DeepSeek Harness 0.2.1-rc.2 or later. Installation requires Creator mode (the `cordis` preset); everyday use does not. The client half depends on four DSH client services: `remote`, `remote.session`, `connection`, and `locale`. Windows is the verified platform; others are untested. No third-party dependencies.
+DeepSeek Harness 0.2.1-rc.2 or later. Installation requires Creator mode (the `cordis` preset); everyday use does not. Windows is the verified platform; others are untested. No third-party dependencies.
 
 ---
 
