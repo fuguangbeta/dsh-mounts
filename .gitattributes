@@ -1,0 +1,8 @@
+# 统一换行符：仓库里一律 LF，检出也一律 LF
+# （CRLF 的 SKILL.md 曾在本项目里导致 frontmatter 解析静默失败）
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.gif binary
+*.ico binary
