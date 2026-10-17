@@ -21,7 +21,7 @@ DSH 不读取该目录；DSH 自动注入的内容为各工作区的 `AGENTS.md`
 
 面板不读取文件内容。记忆库仅取 `stat` 元数据，技能仅取 frontmatter 中的 description。
 查看正文使用每行的「打开」，交由系统默认程序处理；该操作使用 DSH 内置的 Session Remote，
-不可用时降级为「复制路径」。功能范围限于只读呈现，不提供编辑、启停与删除。
+不可用时降级为「复制路径」。面板不修改你的文件。唯一的写操作是它自己的三个配置项，通过 DSH 的配置服务写入。
 
 This is a read-only sidebar panel for DeepSeek Harness. It presents the mounts of the current profile
 in five groups on one page. It registers no tools, adds nothing to the context, writes no files, and
@@ -34,7 +34,7 @@ DSH does not read it, and what DSH injects are the `AGENTS.md` and `AGENTS.local
 of each workspace, reported in the first group. File contents are never read: the memory libraries are
 only `stat`-ed and skills contribute the description line from their frontmatter. Reading a file
 is delegated to the system default application through DSH's Session Remote, with a copy-path fallback.
-The scope is read-only presentation.
+The panel does not modify your files. Its only write is its own three configuration fields, through DSH's configuration service.
 
 ---
 
@@ -154,7 +154,7 @@ so the module is imported again.
 | `extraSkillRoots` | string[] | `[]` | 额外技能根目录。每个直接子目录含 SKILL.md 或 `<名字>.md` 即算一个技能 |
 | `extraPatchFiles` | string[] | `[]` | 额外补丁文件，用于补充 MCP 与智能体预设 |
 
-路径可以写 `~`，会被展开为 home。
+路径可以写 `~`，会被展开为 home。这三个配置项也可以直接在面板顶部的「设置」里编辑。
 
 *Memory libraries are discovered from named `memory` directories inside each workspace. Additional
 plugin configuration on the DSH settings page:*
@@ -165,13 +165,13 @@ plugin configuration on the DSH settings page:*
 | `extraSkillRoots` | string[] | `[]` | Extra skill roots. Each direct child directory containing `SKILL.md` or `<name>.md` counts as one skill |
 | `extraPatchFiles` | string[] | `[]` | Extra patch files, used to add MCP servers and Agent Presets |
 
-*A leading `~` is expanded to the home directory.*
+*A leading `~` is expanded to the home directory. These three settings can also be edited from the panel's “Settings” button.*
 
 ---
 
 ## 4. 安全模型 · *Security Model*
 
-- 不写文件，不启动子进程，不发起出站请求。
+- 不写文件，不启动子进程，不发起出站请求。（面板的配置写入见下一条，走 DSH 的配置服务，不直接写文件。）
 - 仅暴露一个 HTTP 端点 `GET /dsh-mounts/api`。
 - 该端点仅接受 loopback 的 `Host` 头（`127.0.0.1`、`localhost`、`[::1]`），
   其余返回 403，用于阻断 DNS rebinding。
@@ -181,7 +181,11 @@ plugin configuration on the DSH settings page:*
 
 「打开」不新建端点，使用 DSH 现有的 Session Remote，路径由 Host 侧复核。
 
-- *No files are written, no subprocess is started, no outbound request is made.*
+唯一的写入路径是 DSH 已有的 settings Remote，只作用于本插件自己的配置命名空间
+（`dsh-mounts#mounts-panel`）；不新增端点，不写其他任何文件。
+
+- *No files are written, no subprocess is started, no outbound request is made.* (The panel's
+  configuration write goes through DSH's configuration service; see the next bullet.)
 - *One HTTP endpoint is exposed: `GET /dsh-mounts/api`.*
 - *It accepts only a loopback `Host` header (`127.0.0.1`, `localhost`, `[::1]`) and
   returns 403 otherwise, which blocks DNS rebinding.*
@@ -192,6 +196,9 @@ plugin configuration on the DSH settings page:*
 
 The "Open" action creates no endpoint; it uses DSH's existing Session Remote and the path is
 re-validated on the Host side.
+
+The only write path is DSH's existing settings Remote, scoped to this plugin's own configuration
+namespace (`dsh-mounts#mounts-panel`); no endpoint is added and no other file is written.
 
 ---
 

@@ -564,6 +564,11 @@ function scan({ dshHome, profileName, profileDir, cwd, memoryRoots, workspaces, 
     builtins: BUILTIN_PRESETS,
     warnings,
     configWarnings,
+    config: {
+      memoryRoots: memoryRoots || [],
+      extraSkillRoots: extraSkillRoots || [],
+      extraPatchFiles: extraPatchFiles || [],
+    },
   }
 }
 
