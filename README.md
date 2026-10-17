@@ -1,13 +1,48 @@
 # dsh-mounts
 
-> DeepSeek Harness 侧栏里的「**挂载清单**」面板 —— 一眼看清这个 profile 到底挂了什么。
+[![版本](https://img.shields.io/github/v/tag/fuguangbeta/dsh-mounts?label=%E7%89%88%E6%9C%AC&color=blue)](https://github.com/fuguangbeta/dsh-mounts/tags)
+![平台](https://img.shields.io/badge/%E5%B9%B3%E5%8F%B0-DeepSeek%20Harness-0078D4)
+![只读](https://img.shields.io/badge/%E8%AE%BF%E9%97%AE-%E4%BB%85%E5%8F%AA%E8%AF%BB-4CAF50)
+[![许可](https://img.shields.io/github/license/fuguangbeta/dsh-mounts?label=%E8%AE%B8%E5%8F%AF)](https://github.com/fuguangbeta/dsh-mounts/blob/main/LICENSE)
+[![Star](https://img.shields.io/github/stars/fuguangbeta/dsh-mounts?label=Star&color=yellow)](https://github.com/fuguangbeta/dsh-mounts/stargazers)
 
-在 DSH 里，"我挂了什么"散落在五个地方：预规定、记忆库、技能、MCP、智能体预设。
-这个面板把它们摊在同一页，**纯只读**，默认全部折叠，想看哪块点哪块。
+## 关于本工具 · *About This Tool*
+
+dsh-mounts 是 DeepSeek Harness 的一个**只读侧栏面板**。它做的事情很单一：把「这个 profile 实际挂了什么」摊在一页——预规定、记忆库、技能、MCP 服务器、智能体预设。
+
+它不注册任何工具、不注入任何上下文、不写任何文件、不联网。装与不装，模型看到的提示词完全一样——它只是给你看的一张清单。
+
+有几件事需要提前说明。
+
+**它显示的是"存在"，不是"已生效"。** 比如某个 MCP 行出现在补丁里，不代表那个进程正在跑；某个技能出现在列表里，不代表它这一轮被加载过。这是清单，不是仪表盘。
+
+**记忆库那一块读的不是 DSH 的东西。** `~/.zcode/cli/memories/projects/` 是 ZCode 的记忆库，DSH 完全不读它们。这里只是列出来让你知道有哪些文件、各自多大、什么时候改的。真正的"项目记忆"另有一个文件：工作区的 `AGENTS.local.md`，那个是自动注入的。
+
+**它不读文件内容。** 记忆库只做 `stat`（名字、大小、时间），技能只取 frontmatter 里那一行 description。想看正文，用每行的「打开」，交给系统默认程序。
+
+**「打开」依赖 DSH 自带的 Session Remote。** 拿不到时会自动降级成「复制路径」——不会出现点了没反应的情况，也不会因此新增任何端点。
+
+如果你只是想确认"我到底配了什么"，这个面板够用；如果你想在面板里读文件、改配置、开关能力，它不做这些，也不打算做——**能改的面板迟早会改坏东西**。
+
+dsh-mounts is a **read-only sidebar panel** for DeepSeek Harness. It does one narrow thing: lays out everything a profile actually mounts — instructions, memory libraries, skills, MCP servers, and agent presets — on a single page.
+
+It registers no tools, injects no context, writes no files, and never touches the network. With or without it installed, the prompt the model sees is byte-for-byte identical. It is a list you read, nothing more.
+
+A few things are worth saying plainly.
+
+**It shows what exists, not what is active.** An MCP row appearing in the patch does not mean that process is running; a skill appearing in the list does not mean it was loaded this turn. This is an inventory, not a dashboard.
+
+**The memory-library section does not read DSH's own data.** `~/.zcode/cli/memories/projects/` belongs to ZCode, and DSH never reads it. The panel lists those files — names, sizes, timestamps — for visibility only. The actual "project memory" is a different file: `AGENTS.local.md` in the workspace, which DSH injects automatically.
+
+**It never reads file contents.** The memory libraries are only `stat`-ed; skills contribute just the one-line description from their frontmatter. To read a file, use the "Open" button and let the system's default application handle it.
+
+**"Open" relies on DSH's built-in Session Remote.** When that is unavailable the button degrades to "Copy path" on its own — it never silently does nothing, and it never adds an endpoint to make opening work.
+
+Ideal if you want to confirm what you have configured. Not for reading files, editing settings, or toggling capabilities inside the panel — **a panel that can change things will eventually break something.**
 
 ---
 
-## 长什么样
+## 长什么样 · *What It Looks Like*
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
@@ -26,11 +61,11 @@
 
 ```
   ▾ 记忆库                                       6 个库 · 34 个文件
-     ▾ my-app · 14 个文件                         2026-10-16
+     ▾ my-app · 14 个文件                          2026-10-16
          MEMORY.md                     6.7 KB · 2026-10-16   [打开]
          overview.md                  12.9 KB · 2026-10-17   [打开]
          …
-     ▸ another-project · 9 个文件                          2026-10-06
+     ▸ another-project · 9 个文件                  2026-10-06
      ▸ …
 ```
 
@@ -39,82 +74,123 @@
 
 ---
 
-## 五块内容
+## 五块内容 · *The Five Sections*
 
-| 块 | 说明 |
-|---|---|
-| **预规定** | 全局 `~/.dsh/AGENTS.md` + 项目根到 cwd 链上的 `AGENTS.md` / `CLAUDE.md` / `AGENTS.local.md` / `CLAUDE.local.md` |
-| **记忆库** | `~/.zcode/cli/memories/projects/*/memory/` 下的独立记忆库，每个库一个列表。**DSH 不读取这些文件**，这里只是清单 |
-| **技能** | 四个扫描根：项目 `.dsh/skills` → 项目 `.agents/skills` → 用户 `~/.dsh/skills` → 用户 `~/.agents/skills` |
-| **MCP 服务器** | profile 补丁里的 `dsh-mcp-client` 行：serverName、transport、命令或 URL、env 变量名 |
-| **智能体预设** | profile 定义的预设 + 内置的 `standard / ptc / minimal / cordis`，标出「当前」与「部署默认」 |
+**预规定** —— 全局 `~/.dsh/AGENTS.md`，以及项目根到当前目录这条链上的
+`AGENTS.md` / `CLAUDE.md` / `AGENTS.local.md` / `CLAUDE.local.md`。
+展开能看到每份文件的 `##` 章节标题。
 
-## 折叠与详情
+**记忆库** —— `~/.zcode/cli/memories/projects/*/memory/` 下的每个目录各自算一个库。
+点库标头展开文件列表，每行是「文件名 · 大小 · 修改日期」，右侧可「打开」。
 
-- 打开面板时五块**全部折叠**，只显示标题行
-- 点块标题 → 展开该块的条目
-- 点条目 → 展开它**自己的字段**：章节标题 / 完整描述与路径 / 补丁行与 env / 目标
-- 「记忆库」多一层：点库标头 → 文件列表；每个文件带「**打开**」，用系统默认程序打开，
-  拿不到 Remote 时降级为「复制路径」
+**技能** —— 四个扫描根，按优先级排列：项目 `.dsh/skills` → 项目 `.agents/skills` →
+用户 `~/.dsh/skills` → 用户 `~/.agents/skills`。展开能看到完整描述、文件路径、来源根。
 
-所有展开都只显示该条目自身的信息，**不会去索引别处的文件**。
+**MCP 服务器** —— profile 补丁里的 `dsh-mcp-client` 行。展开能看到补丁行 id、env 变量名、
+完整的目标命令或 URL。
+
+**智能体预设** —— profile 里自己定义的预设，加上内置的 `standard` / `ptc` /
+`minimal` / `cordis`。当前在用的标「当前」，部署默认的标「部署默认」。
+
+## 折叠与详情 · *Folding and Details*
+
+打开面板时五块**全部折叠**，只显示五行标题——先告诉你"有几块、各多少"，而不是一上来铺满屏幕。
+
+点块标题展开条目，点条目展开它**自己的**字段。所有展开都只涉及该条目自身的信息，
+**不会去索引别处的文件**。
+
+「记忆库」比别的块多一层：块 → 库 → 文件。
 
 ---
 
-## 安装
+## 安装 · *Installation*
 
-> 也可以用 GitHub 的 **Download ZIP** 解开，效果一样——不依赖 npm。
+推荐走 DSH 官方路径。需要 **Creator 模式**（`cordis` preset）——只有那个预设带 `plugin_manager`。
 
-推荐走 DSH 官方路径（需要 **Creator 模式 / `cordis` preset**，只有它有 `plugin_manager`）：
-
-1. 把本仓库放到任意工作区
+1. 把本仓库放到任意工作区（clone 或 GitHub 的 **Download ZIP** 都行，不依赖 npm）
 2. 用 `plugin_manager` 的 `install_bundle`，`target` 指向本包目录的**绝对路径**
 3. 读返回的 `application` 和 `warnings` 确认结果
 
-> ⛔ **不要**手工改 profile 的 `package.json` / `cordis.patch.yml`，也不要在 profile 目录跑 pnpm —— 官方指南明确禁止，`install_bundle` 会处理这些。
+> ⛔ **不要**手工改 profile 的 `package.json` / `cordis.patch.yml`，也不要在 profile 目录跑 pnpm。
+> 官方指南明确禁止，`install_bundle` 会处理这些。
 
-改完客户端代码**硬刷新页面**（Ctrl+Shift+R）；改 Host 代码用 `plugin_manager` 把 `include:mounts-panel` 关→开重新 import。
-
----
-
-## 安全
-
-本插件是**只读查看器**，设计上刻意收窄了攻击面：
-
-- **不写文件**、**不 spawn 进程**、**不发起出站网络请求**
-- 唯一 HTTP 端点是 `GET /dsh-mounts/api`：
-  - 只允许 loopback `Host` 头（`127.0.0.1` / `localhost` / `[::1]`），其余一律 **403**（防 DNS rebinding）
-  - 只接受 **GET / HEAD**，其余 **405**
-  - `Cache-Control: no-store`
-  - 自定义的 `cwd` 参数被**移除**，不会变成任意目录探测器
-- **不返回任何文件内容**：记忆库只做 `stat`（文件名、大小、修改时间），技能只取 frontmatter 的 description
-- 「打开」动作**不自建端点**：走 DSH 现成的 Session Remote（`remote.session.openWorkspacePath`），
-  由 Host 侧用组合文件系统复核路径；Remote 不可用时自动降级为「复制路径」
+装完侧栏就能看到「挂载清单」。改客户端代码后**硬刷新**（Ctrl+Shift+R）生效；
+改 Host 代码要用 `plugin_manager` 把 `include:mounts-panel` 关→开重新 import。
 
 ---
 
-## 已知限制
+## 安全 · *Security*
 
-- **内置 Preset 只有名字**：定义在 bundle 里（`app.asar` 内），第三方插件读不了，所以只能列出 id，不能展开。
-- **记忆库路径是写死的**：只认 `~/.zcode/cli/memories/projects/`，别的工具的记忆库不会被发现。
-- **技能描述上限 400 字**：超过的会在末尾加「…」。
-- **MCP 的 preset 列是推导的**：取「MCP 数 == 服务器总数」的唯一 preset，推不出来就留空。
-  API 里没有 MCP→preset 的映射（要精确得在 Host 侧按补丁子树归属）。
-- **工作区是猜测的**：取 workspace 注册表里 `updatedAt` 最新的一个，不是会话级精确绑定。
-  切换工作区后可能显示的不是当前会话所在的那个。
-- **「打开」依赖 Session Remote**：在拿不到 Remote 的部署里会显示「复制路径」。
+本插件刻意收窄了攻击面：
+
+**不写文件、不 spawn 进程、不发起出站网络请求。**
+
+唯一对外暴露的是一个 HTTP 端点 `GET /dsh-mounts/api`：
+
+- 只允许 loopback 的 `Host` 头（`127.0.0.1` / `localhost` / `[::1]`），
+  其余一律 **403** —— 这是防 DNS rebinding 的
+- 只接受 **GET / HEAD**，其余 **405**
+- `Cache-Control: no-store`
+- 自定义的 `cwd` 参数被移除，不会变成任意目录探测器
+
+**不返回任何文件内容。** 记忆库只 `stat`，技能只取 frontmatter 的 description。
+
+「打开」动作**不自建端点**：走 DSH 现成的 Session Remote，由 Host 侧用组合文件系统复核路径。
 
 ---
 
-## 兼容性
+## 已知限制 · *Known Limitations*
 
-- DSH **>= 0.2.1-rc.2**
-- Client 侧依赖：`remote` / `remote.session` / `connection` / `locale`
-- Windows 优先（路径与打开行为按 Windows 验证）；其余平台未测试
+**内置预设只有名字。** 它们定义在 bundle 里（`app.asar` 内），第三方插件读不到内容，所以只能列出 id，不能展开。
+
+**记忆库路径是写死的。** 只认 `~/.zcode/cli/memories/projects/`，别的工具的记忆库不会被发现。
+
+**技能描述上限 400 字。** 超过的会在末尾加「…」。
+
+**MCP 的预设列是推导的。** 取「MCP 数 == 服务器总数」的那个预设，推不出来就留空。
+API 里没有 MCP→预设 的映射，要精确得在 Host 侧按补丁子树归属。
+
+**工作区是猜的。** 取 workspace 注册表里 `updatedAt` 最新的一个，不是会话级精确绑定。
+切换工作区后，显示的可能不是当前会话所在的那个。
+
+**「打开」依赖 Session Remote。** 拿不到时会显示「复制路径」。
 
 ---
 
-## 开发
+## 系统要求 · *System Requirements*
+
+- **DeepSeek Harness >= 0.2.1-rc.2**
+- 安装时需要 **Creator 模式**（`cordis` preset）；日常使用不需要
+- Client 侧依赖四个 DSH 客户端服务：`remote` / `remote.session` / `connection` / `locale`
+- Windows 优先（路径与「打开」行为按 Windows 验证）；其余平台未测试
+- 无任何第三方依赖
+
+DeepSeek Harness 0.2.1-rc.2 or later. Installation requires Creator mode (the `cordis` preset); everyday use does not. The client half depends on four DSH client services: `remote`, `remote.session`, `connection`, and `locale`. Windows is the verified platform; others are untested. No third-party dependencies.
+
+---
+
+## 常见问题 · *Frequently Asked Questions*
+
+**装完了侧栏没有「挂载清单」？**
+先确认 `install_bundle` 返回的 `application` 是 `applied`。已经装上了但看不到，多半是页面缓存——按 **Ctrl+Shift+R** 硬刷新；还不行就退出 DSH 重新打开。
+
+**改了代码，页面上还是旧样子？**
+客户端改动用硬刷新；改了 Host 侧（`index.js`）则必须用 `plugin_manager` 把
+`include:mounts-panel` 关→开一次，模块才会重新 import。
+
+**面板显示的工作区不是我当前所在的那个？**
+已知限制。面板取的是注册表里最近更新的工作区，不是会话级绑定。
+
+**「打开」按钮变成了「复制路径」？**
+说明这个页面拿不到 Session Remote，属于正常降级。点一下会把完整路径复制到剪贴板，粘到资源管理器即可打开。
+
+**为什么面板里看不到 ZCode 记忆库的正文？**
+有意为之。读文件内容需要在端点里开一个文件读取口子，那会把 `~/.dsh/.credentials.yaml`
+这类文件一起暴露出去。所以只提供「打开」，交给系统程序。
+
+---
+
+## 开发 · *Development*
 
     dsh-mounts/
       package.json       包清单 + dsh.bundle + dsh.client
@@ -130,6 +206,12 @@
 
 ---
 
-## License
+## 许可 · *License*
 
-MIT
+MIT。见 [LICENSE](LICENSE)。
+
+---
+
+## 支持 · *Support*
+
+这是一个小工具，用着顺手就好。发现问题请开 issue，附上 DSH 版本和面板截图（**记得先遮掉路径里的用户名**）。
