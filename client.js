@@ -17,7 +17,7 @@ window.__ModuleLoader__.load({
 
     const ZN = {
       'panel.title': '挂载清单',
-      'panel.subtitle': '这个 profile 实际挂载了什么：记忆链、技能、MCP 与 Agent Preset。',
+      'panel.subtitle': '这个 profile 实际挂载了什么：预规定、记忆库、技能、MCP 与 Agent Preset。',
       'panel.readonly': '只读',
       'panel.refresh': '刷新',
       'panel.loading': '读取中…',
@@ -36,9 +36,9 @@ window.__ModuleLoader__.load({
       'section.mcp': 'MCP 服务器',
       'section.presets': '智能体预设',
       'label.sections': '节',
-      'memory.count': '%s 个库 · %s 个文件',
-      'memory.files': '%s 个文件',
-      'memory.folded': '（%s 个副本已折叠）',
+      'memory.workspaces': '%s 个工作区 · %s 个文件',
+      'memory.noRules': '无规则文件',
+      'memory.noMemory': '无记忆文件',
       'detail.open': '打开',
       'detail.path': '路径',
       'detail.sections': '章节',
@@ -52,12 +52,14 @@ window.__ModuleLoader__.load({
       'detail.copied': '已复制到剪贴板',
       'detail.copyFailed': '复制失败：浏览器没有授予剪贴板权限',
       'detail.openFailed': '打开失败：系统默认程序没有接受这个文件',
-      'rules.empty': '未找到 AGENTS.md 或 AGENTS.local.md。',
+      'rules.empty': '未找到全局 AGENTS.md。',
+      'rules.inject': '注入',
       'memory.empty': '未发现记忆库。',
       'memory.emptyHint': '把记忆文件放在工作区的 memory/ 目录（<工作区>/memory、.dsh/memory、.agents/memory）。',
-      'skills.empty': '未发现技能。',
-      'skills.project': '项目',
-      'skills.custom': '自定义',
+      'skills.global': '全局技能',
+      'skills.workspace': '工作区技能',
+      'skills.globalEmpty': '未发现全局技能。',
+      'skills.workspaceEmpty': '未发现工作区技能。',
       'mcp.empty': '未发现 MCP 服务器行。',
       'preset.empty': '未发现预设。',
       'preset.builtinRow': '内置 preset（来自 bundle，不可展开）',
@@ -66,7 +68,7 @@ window.__ModuleLoader__.load({
 
     const EN = {
       'panel.title': 'Mounts',
-      'panel.subtitle': 'What this profile actually mounts: memory chain, skills, MCP servers, and Agent Presets.',
+      'panel.subtitle': 'What this profile actually mounts: rules, memory libraries, skills, MCP servers, and Agent Presets.',
       'panel.readonly': 'Read-only',
       'panel.refresh': 'Refresh',
       'panel.loading': 'Reading…',
@@ -85,9 +87,9 @@ window.__ModuleLoader__.load({
       'section.mcp': 'MCP servers',
       'section.presets': 'Agent Presets',
       'label.sections': 'sections',
-      'memory.count': '%s stores · %s files',
-      'memory.files': '%s files',
-      'memory.folded': '(%s duplicates folded)',
+      'memory.workspaces': '%s workspaces · %s files',
+      'memory.noRules': 'No instruction files',
+      'memory.noMemory': 'No memory files',
       'detail.open': 'Open',
       'detail.path': 'Path',
       'detail.sections': 'Sections',
@@ -101,12 +103,14 @@ window.__ModuleLoader__.load({
       'detail.copied': 'Copied to clipboard',
       'detail.copyFailed': 'Copy failed: the browser denied clipboard access',
       'detail.openFailed': 'Open failed: the default application did not accept this file',
-      'rules.empty': 'No AGENTS.md or AGENTS.local.md found.',
+      'rules.empty': 'No global AGENTS.md found.',
+      'rules.inject': 'Injected',
       'memory.empty': 'No memory stores found.',
       'memory.emptyHint': 'Put memory files in a workspace memory/ directory (<ws>/memory, .dsh/memory, .agents/memory).',
-      'skills.empty': 'No skills found.',
-      'skills.project': 'Project',
-      'skills.custom': 'Custom',
+      'skills.global': 'Global skills',
+      'skills.workspace': 'Workspace skills',
+      'skills.globalEmpty': 'No global skills found.',
+      'skills.workspaceEmpty': 'No workspace skills found.',
       'mcp.empty': 'No MCP server rows found.',
       'preset.empty': 'No presets found.',
       'preset.builtinRow': 'Built-in preset (from the bundle, not expandable)',
@@ -175,6 +179,8 @@ window.__ModuleLoader__.load({
 .dmp-mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;}
 .dmp-empty{padding:12px 16px;font-size:12px;color:var(--dsw-alias-label-secondary);}
 .dmp-empty-hint{margin-top:2px;font-size:11px;line-height:1.6;color:var(--dsw-alias-label-secondary);}
+.dmp-rule-row{width:100%;background:none;border:0;font:inherit;font-size:11.5px;text-align:left;cursor:pointer;color:inherit;}
+.dmp-rule-section{padding:2px 16px 2px 34px;font-size:11px;color:var(--dsw-alias-label-secondary);}
 .dmp-warning{padding:8px 16px;font-size:11px;line-height:1.6;color:var(--dsw-alias-state-warn-primary);border-top:1px solid var(--dsw-alias-border-l1);}
 .dmp-foot{margin-top:18px;display:flex;flex-wrap:wrap;gap:6px 16px;font-size:11.5px;color:var(--dsw-alias-label-secondary);}
 `
@@ -419,8 +425,10 @@ window.__ModuleLoader__.load({
           const t = useTranslate()
           const inventory = useInventory()
           const [openBlocks, setOpenBlocks] = React.useState({})
-          const [openStores, setOpenStores] = React.useState({})
+          const [openMemoryWorkspaces, setOpenMemoryWorkspaces] = React.useState({})
           const [openRows, setOpenRows] = React.useState({})
+          const [openSkillsScope, setOpenSkillsScope] = React.useState({})
+          const [openSkillWorkspaces, setOpenSkillWorkspaces] = React.useState({})
           const [notice, setNotice] = React.useState(null)
           const [openError, setOpenError] = React.useState(null)
           const [canOpen, setCanOpen] = React.useState(false)
@@ -447,8 +455,13 @@ window.__ModuleLoader__.load({
           }, [])
 
           const toggleBlock = (id) => setOpenBlocks((previous) => ({ ...previous, [id]: !previous[id] }))
-          const toggleStore = (id) => setOpenStores((previous) => ({ ...previous, [id]: !previous[id] }))
+          const toggleMemoryWorkspace = (name) =>
+            setOpenMemoryWorkspaces((previous) => ({ ...previous, [name]: !previous[name] }))
           const toggleRow = (id) => setOpenRows((previous) => ({ ...previous, [id]: !previous[id] }))
+          const toggleSkillsScope = (key) =>
+            setOpenSkillsScope((previous) => ({ ...previous, [key]: !previous[key] }))
+          const toggleSkillWorkspace = (name) =>
+            setOpenSkillWorkspaces((previous) => ({ ...previous, [name]: !previous[name] }))
 
           const copyPath = (target) => {
             setOpenError(null)
@@ -498,18 +511,22 @@ window.__ModuleLoader__.load({
             body = h('div', { className: 'dmp-empty' }, t('panel.loading'))
           } else {
             const globalRules = data.globalRules || {}
-            const chain = data.chain || []
+            const workspaces = data.workspaces || []
             const skills = data.skills || []
-            const roots = data.skillRoots || []
             const servers = data.mcp || []
             const presets = data.presets || []
-            const memory = data.memory || []
             const warnings = Array.isArray(data.warnings) ? data.warnings : []
             const configWarnings = Array.isArray(data.configWarnings) ? data.configWarnings : []
             const warningsFor = (prefix) => configWarnings.filter((warning) => String(warning).includes(prefix))
             const warningLines = (list, keyPrefix) =>
               list.map((warning, index) => h('div', { className: 'dmp-warning', key: keyPrefix + index }, warning))
-            const memoryFiles = memory.reduce((sum, store) => sum + store.count, 0)
+            const filledWorkspaces = workspaces.filter(
+              (entry) => (entry.rules || []).length > 0 || ((entry.memory && entry.memory.count) || 0) > 0,
+            )
+            const totalFiles = filledWorkspaces.reduce(
+              (sum, entry) => sum + (entry.rules || []).length + ((entry.memory && entry.memory.count) || 0),
+              0,
+            )
             const workspace = data.workspace || {}
             const profile = data.profile || {}
 
@@ -554,85 +571,111 @@ window.__ModuleLoader__.load({
                 }),
               )
             }
-            for (const [index, entry] of chain.entries()) {
-              const rowId = 'rule-' + index
-              ruleRows.push(
-                h(Row, {
-                  key: entry.path,
-                  id: rowId,
-                  name: entry.rel,
-                  secondary: sectionMeta(entry),
-                  mono: true,
-                  expandable: true,
-                  open: Boolean(openRows[rowId]),
-                  onToggle: () => toggleRow(rowId),
-                  detail: [
-                    ...detailLines([[t('detail.path'), entry.path]]),
-                    h(
-                      'div',
-                      { className: 'dmp-detail-line', key: 'sections' },
-                      h('span', { className: 'dmp-detail-label' }, t('detail.sections')),
-                      h(
-                        'span',
-                        { className: 'dmp-detail-value' },
-                        (entry.sections || []).length
-                          ? entry.sections.map((section, sectionIndex) => h('div', { key: sectionIndex }, section))
-                          : '—',
-                      ),
-                    ),
-                  ],
-                }),
-              )
-            }
 
-            const skillsOf = (root) => skills.filter((skill) => skill.rank === root.rank && skill.label === root.label)
-            const openRoots = roots.filter((root) => skillsOf(root).length)
-            const projectBase = String(workspace.projectRoot || '').replace(/\\/g, '/')
-            const rootDisplay = (root) => {
-              const full = String(root.root || '').replace(/\\/g, '/')
-              const relative =
-                projectBase && full.toLowerCase().startsWith(projectBase.toLowerCase())
-                  ? full.slice(projectBase.length).replace(/^\//, '')
-                  : full
-              if (root.rank === 350) return t('skills.custom') + ' ' + relative
-              if (root.rank < 400) return t('skills.project') + ' ' + relative
-              return home && full.toLowerCase().startsWith(home.toLowerCase()) ? '~' + full.slice(home.length) : full
+            const globalSkills = skills.filter((skill) => skill.scope === 'global')
+            const workspaceSkills = skills.filter((skill) => skill.scope === 'workspace')
+            const workspaceGroups = []
+            const workspaceIndex = new Map()
+            for (const skill of workspaceSkills) {
+              const key = skill.workspace || '—'
+              let group = workspaceIndex.get(key)
+              if (!group) {
+                group = { name: key, path: skill.workspacePath || '', skills: [] }
+                workspaceIndex.set(key, group)
+                workspaceGroups.push(group)
+              }
+              group.skills.push(skill)
             }
+            workspaceGroups.sort((a, b) => a.name.localeCompare(b.name))
             const skillIndex = new Map(skills.map((skill, index) => [skill.path, index]))
-            const skillRow = (skill) => {
-              const rowId = 'skill-' + skillIndex.get(skill.path)
-              return h(Row, {
+            const skillRow = (skill) =>
+              h(Row, {
                 key: skill.path,
-                id: rowId,
+                id: 'skill-' + skillIndex.get(skill.path),
                 name: skill.name,
                 secondary: skill.desc || '—',
                 meta: bytes(skill.bytes),
-                expandable: true,
-                open: Boolean(openRows[rowId]),
-                onToggle: () => toggleRow(rowId),
-                detail: detailLines([
-                  [t('detail.desc'), skill.desc || '—'],
-                  [t('detail.path'), skill.path],
-                  [t('detail.source'), (skill.label || '') + ' · rank ' + skill.rank],
-                ]),
               })
-            }
-            const skillNodes =
-              openRoots.length > 1
-                ? openRoots.map((root) =>
-                    h(
-                      'div',
-                      { key: root.label },
-                      h(
-                        'div',
-                        { className: 'dmp-group', title: root.root },
-                        h('b', null, rootDisplay(root)),
-                        h('span', { className: 'dmp-group-meta' }, '· ' + skillsOf(root).length),
-                      ),
-                      skillsOf(root).map(skillRow),
-                    ),
-                  )
-                : skills.map(skillRow)
+            const skillSectionHead = (key, label, open, bodyId) =>
+              h(
+                'button',
+                {
+                  type: 'button',
+                  className: 'dmp-mem-head',
+                  'aria-expanded': open,
+                  'aria-controls': bodyId,
+                  onClick: () => toggleSkillsScope(key),
+                },
+                h('span', { className: 'dmp-arrow', 'aria-hidden': true }, open ? '▾' : '▸'),
+                h('b', null, label),
+              )
+            const skillSectionBody = (bodyId, open, children) =>
+              h('div', { id: bodyId, className: 'dmp-mem-body', hidden: !open }, children)
+
+            const workspaceNodes = workspaceGroups.map((group) => {
+              const open = Boolean(openSkillWorkspaces[group.name])
+              const bodyId = 'dmp-skill-ws-' + group.name
+              return h(
+                'div',
+                { key: group.name },
+                h(
+                  'button',
+                  {
+                    type: 'button',
+                    className: 'dmp-mem-head',
+                    title: group.path,
+                    'aria-expanded': open,
+                    'aria-controls': bodyId,
+                    onClick: () => toggleSkillWorkspace(group.name),
+                  },
+                  h('span', { className: 'dmp-arrow', 'aria-hidden': true }, open ? '▾' : '▸'),
+                  h('b', null, group.name),
+                  h('span', { className: 'dmp-mem-count' }, ' (' + group.skills.length + ')'),
+                ),
+                h('div', { id: bodyId, className: 'dmp-mem-body', hidden: !open }, group.skills.map(skillRow)),
+              )
+            })
+
+            const globalOpen = Boolean(openSkillsScope.global)
+            const workspaceOpen = Boolean(openSkillsScope.workspace)
+            const skillNodes = h(
+              React.Fragment,
+              null,
+              h(
+                'div',
+                { key: 'global' },
+                skillSectionHead(
+                  'global',
+                  t('skills.global') + ' (' + globalSkills.length + ')',
+                  globalOpen,
+                  'dmp-skills-global',
+                ),
+                skillSectionBody(
+                  'dmp-skills-global',
+                  globalOpen,
+                  globalSkills.length
+                    ? globalSkills.map(skillRow)
+                    : h('div', { className: 'dmp-empty' }, t('skills.globalEmpty')),
+                ),
+              ),
+              h(
+                'div',
+                { key: 'workspace' },
+                skillSectionHead(
+                  'workspace',
+                  t('skills.workspace') + ' (' + workspaceSkills.length + ')',
+                  workspaceOpen,
+                  'dmp-skills-workspace',
+                ),
+                skillSectionBody(
+                  'dmp-skills-workspace',
+                  workspaceOpen,
+                  workspaceGroups.length
+                    ? workspaceNodes
+                    : h('div', { className: 'dmp-empty' }, t('skills.workspaceEmpty')),
+                ),
+              ),
+            )
 
             const mcpRows = servers.map((server, index) => {
               const rowId = 'mcp-' + index
@@ -744,7 +787,7 @@ window.__ModuleLoader__.load({
                 {
                   id: 'rules',
                   title: t('section.rules'),
-                  count: (globalRules.exists ? 1 : 0) + chain.length,
+                  count: globalRules.exists ? 1 : 0,
                   open: Boolean(openBlocks.rules),
                   onToggle: () => toggleBlock('rules'),
                 },
@@ -755,73 +798,114 @@ window.__ModuleLoader__.load({
                 {
                   id: 'memory',
                   title: t('section.memory'),
-                  count: String(t('memory.count'))
-                    .replace('%s', String(memory.length))
-                    .replace('%s', String(memoryFiles)),
+                  count: String(t('memory.workspaces'))
+                    .replace('%s', String(filledWorkspaces.length))
+                    .replace('%s', String(totalFiles)),
                   open: Boolean(openBlocks.memory),
                   onToggle: () => toggleBlock('memory'),
                 },
                 h(
                   React.Fragment,
                   null,
-                  memory.length
+                  filledWorkspaces.length
                     ? [
                         notice ? h('div', { className: 'dmp-open-notice' }, notice) : null,
                         openError ? h('div', { className: 'dmp-open-error' }, openError) : null,
-                        memory.map((store) => {
-                          const bodyId = 'dmp-mem-' + store.group
-                          const open = Boolean(openStores[store.group])
-                          const countText = ' · ' + String(t('memory.files')).replace('%s', String(store.count))
-                          const foldedText =
-                            store.folded > 0
-                              ? ' ' + String(t('memory.folded')).replace('%s', String(store.folded))
-                              : ''
+                        filledWorkspaces.map((entry) => {
+                          const bodyId = 'dmp-ws-mem-' + entry.name
+                          const open = Boolean(openMemoryWorkspaces[entry.name])
+                          const rules = entry.rules || []
+                          const mem = entry.memory || { count: 0, files: [] }
                           return h(
                             'div',
-                            { key: store.group },
+                            { key: entry.name },
                             h(
                               'button',
                               {
                                 type: 'button',
                                 className: 'dmp-mem-head',
-                                title: (store.dirs || []).join('\n'),
+                                title: entry.path,
                                 'aria-expanded': open,
                                 'aria-controls': bodyId,
-                                onClick: () => toggleStore(store.group),
+                                onClick: () => toggleMemoryWorkspace(entry.name),
                               },
                               h('span', { className: 'dmp-arrow', 'aria-hidden': true }, open ? '▾' : '▸'),
-                              h('b', null, store.group),
-                              h('span', { className: 'dmp-mem-count' }, countText + foldedText),
-                              store.latest
-                                ? h('span', { className: 'dmp-mem-latest' }, String(store.latest).slice(0, 10))
-                                : null,
+                              h('b', null, entry.name),
                             ),
                             h(
                               'div',
                               { id: bodyId, className: 'dmp-mem-body', hidden: !open },
-                              store.files.map((file) => {
-                                const target = joinPath(file.dir, file.name)
-                                return h(
-                                  'div',
-                                  { className: 'dmp-file', key: (file.dir || '') + '|' + file.name, title: target },
-                                  h('span', { className: 'dmp-file-name' }, file.name),
-                                  h(
-                                    'span',
-                                    { className: 'dmp-file-meta' },
-                                    bytes(file.bytes) + ' · ' + String(file.mtime).slice(0, 10),
-                                  ),
-                                  h(
-                                    'button',
-                                    {
-                                      type: 'button',
-                                      className: 'dmp-open-btn',
-                                      title: target,
-                                      onClick: () => openFile(target),
-                                    },
-                                    canOpen ? t('detail.open') : t('detail.copy'),
-                                  ),
-                                )
-                              }),
+                              rules.length
+                                ? rules.map((rule) => {
+                                    const rowId = 'wsrule-' + rule.path
+                                    const ruleOpen = Boolean(openRows[rowId])
+                                    return h(
+                                      'div',
+                                      { key: rule.path },
+                                      h(
+                                        'button',
+                                        {
+                                          type: 'button',
+                                          className: 'dmp-file dmp-rule-row',
+                                          title: rule.path,
+                                          'aria-expanded': ruleOpen,
+                                          'aria-controls': rowId,
+                                          onClick: () => toggleRow(rowId),
+                                        },
+                                        h(
+                                          'span',
+                                          { className: 'dmp-arrow', 'aria-hidden': true },
+                                          ruleOpen ? '▾' : '▸',
+                                        ),
+                                        h('span', { className: 'dmp-file-name' }, rule.file),
+                                        h('span', { className: 'dmp-chip' }, t('rules.inject')),
+                                        h(
+                                          'span',
+                                          { className: 'dmp-file-meta' },
+                                          (rule.sections || []).length + ' ' + t('label.sections'),
+                                        ),
+                                      ),
+                                      h(
+                                        'div',
+                                        { id: rowId, className: 'dmp-mem-body', hidden: !ruleOpen },
+                                        (rule.sections || []).length
+                                          ? rule.sections.map((section, index) =>
+                                              h('div', { className: 'dmp-rule-section', key: index }, section),
+                                            )
+                                          : h('div', { className: 'dmp-empty' }, '—'),
+                                      ),
+                                    )
+                                  })
+                                : h('div', { className: 'dmp-empty' }, t('memory.noRules')),
+                              mem.count > 0
+                                ? mem.files.map((file) => {
+                                    const target = joinPath(file.dir, file.name)
+                                    return h(
+                                      'div',
+                                      {
+                                        className: 'dmp-file',
+                                        key: (file.dir || '') + '|' + file.name,
+                                        title: target,
+                                      },
+                                      h('span', { className: 'dmp-file-name' }, file.name),
+                                      h(
+                                        'span',
+                                        { className: 'dmp-file-meta' },
+                                        bytes(file.bytes) + ' · ' + String(file.mtime).slice(0, 10),
+                                      ),
+                                      h(
+                                        'button',
+                                        {
+                                          type: 'button',
+                                          className: 'dmp-open-btn',
+                                          title: target,
+                                          onClick: () => openFile(target),
+                                        },
+                                        canOpen ? t('detail.open') : t('detail.copy'),
+                                      ),
+                                    )
+                                  })
+                                : h('div', { className: 'dmp-empty' }, t('memory.noMemory')),
                             ),
                           )
                         }),
@@ -847,7 +931,7 @@ window.__ModuleLoader__.load({
                 h(
                   React.Fragment,
                   null,
-                  skills.length ? skillNodes : h('div', { className: 'dmp-empty' }, t('skills.empty')),
+                  skillNodes,
                   warningLines(warningsFor('extraSkillRoots'), 'skill-warning-'),
                 ),
               ),

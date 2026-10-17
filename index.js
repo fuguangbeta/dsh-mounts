@@ -1,11 +1,12 @@
 /**
  * dsh-mounts — Host half.
  *
- * Read-only inventory of what this DSH profile actually mounts: the memory
- * chain (global + project AGENTS.md files), the skills found in the four
- * scan roots, the `dsh-mcp-client` rows of the profile patch, and the Agent
- * Presets that patch declares. The scan is pure Node `fs` reading; the only
- * thing this plugin serves is its own JSON snapshot to its own panel.
+ * Read-only inventory of what this DSH profile actually mounts: the global
+ * AGENTS.md, each registered workspace's rule files and memory libraries, the
+ * skills found in the user and workspace scan roots, the `dsh-mcp-client` rows
+ * of the profile patch, and the Agent Presets that patch declares. The scan is
+ * pure Node `fs` reading; the only thing this plugin serves is its own JSON
+ * snapshot to its own panel.
  *
  * It never writes a file, never spawns a process, and never reaches a network.
  */
@@ -65,7 +66,6 @@ export const inject = ['webServer']
 export const name = 'dsh-mounts'
 
 const ROUTE = '/dsh-mounts/api'
-const RULE_FILES = ['AGENTS.md', 'CLAUDE.md', 'AGENTS.local.md', 'CLAUDE.local.md']
 const MCP_PACKAGE = '@deepseek-ai/dsh-mcp-client'
 const PRESET_PACKAGE = '@deepseek-ai/dsh-agent-preset'
 
@@ -174,32 +174,6 @@ function locateProject(cwd) {
     if (parent === dir) return { root: start, hasGit: false }
     dir = parent
   }
-}
-
-function memoryChain(project, cwd) {
-  const sequence = []
-  let dir = path.resolve(cwd)
-  sequence.push(dir)
-  while (dir.toLowerCase() !== project.toLowerCase()) {
-    const parent = path.dirname(dir)
-    if (parent === dir) break
-    dir = parent
-    sequence.push(dir)
-  }
-  const out = []
-  for (const base of sequence.reverse()) {
-    for (const fileName of RULE_FILES) {
-      const file = path.join(base, fileName)
-      if (!isFile(file)) continue
-      out.push({
-        path: file,
-        rel: path.relative(project, file) || fileName,
-        bytes: fileSize(file),
-        sections: headings(readText(file) || '').slice(0, 12),
-      })
-    }
-  }
-  return out
 }
 
 /**
@@ -311,10 +285,8 @@ function scanPresetRows(patchFiles) {
 }
 
 /**
- * One memory root, expanded: a leading `~` becomes home, a missing root is
- * skipped. A root holding `.md` files directly is a library itself; otherwise
- * each direct child is one — its `memory/` folder when that exists, else the
- * child itself. Files are `stat`-ed only, up to 200 per library.
+ * A leading `~` becomes home; anything else is used verbatim. Paths that do
+ * not exist are ignored by the callers, never created.
  */
 function expandHome(value) {
   const text = String(value || '').trim()
@@ -354,56 +326,6 @@ function makeStore(name, dir) {
   if (!files.length) return null
   const latest = files.reduce((newest, item) => (item.mtime > newest ? item.mtime : newest), '')
   return { name, dir, count: files.length, latest, files }
-}
-
-function configuredStores(roots, warnings) {
-  const stores = []
-  for (const raw of roots || []) {
-    const root = expandHome(raw)
-    if (!root) continue
-    if (!isDirectory(root)) {
-      warnings.push('memoryRoots 中的 ' + raw + ' 不存在')
-      continue
-    }
-
-    const found = []
-    const own = makeStore(path.basename(root) || root, root)
-    if (own) found.push(own)
-    else {
-      let children
-      try {
-        children = readdirSync(root)
-      } catch {
-        children = []
-      }
-      for (const child of children) {
-        const childDir = path.join(root, child)
-        if (!isDirectory(childDir)) continue
-        const memoryDir = path.join(childDir, 'memory')
-        const nested = isDirectory(memoryDir) ? makeStore(child, memoryDir) : null
-        if (nested) {
-          found.push(nested)
-          continue
-        }
-        const flat = makeStore(child, childDir)
-        if (flat) found.push(flat)
-      }
-    }
-
-    if (!found.length) {
-      warnings.push('memoryRoots 中的 ' + raw + ' 下没有发现记忆库目录')
-      continue
-    }
-    for (const store of found) {
-      stores.push({
-        group: String(store.name).replace(/-[0-9a-f]{16}$/i, ''),
-        dir: store.dir,
-        origin: 'configured',
-        files: store.files,
-      })
-    }
-  }
-  return stores
 }
 
 function workspaceStores(workspaces) {
@@ -476,6 +398,43 @@ function mergeMemory(stores) {
   return result
 }
 
+function workspaceEntries(workspaces) {
+  const entries = []
+  for (const workspacePath of workspaces || []) {
+    const rules = []
+    for (const fileName of ['AGENTS.md', 'AGENTS.local.md']) {
+      const file = path.join(workspacePath, fileName)
+      const text = readText(file)
+      if (text === null) continue
+      rules.push({ file: fileName, path: file, bytes: fileSize(file), sections: headings(text).slice(0, 12) })
+    }
+    const merged = mergeMemory(workspaceStores([workspacePath]))
+    const memory = merged.length
+      ? {
+          count: merged[0].count,
+          folded: merged[0].folded,
+          dirs: merged[0].dirs,
+          latest: merged[0].latest,
+          files: merged[0].files,
+        }
+      : { count: 0, folded: 0, dirs: [], latest: '', files: [] }
+    entries.push({
+      name: path.basename(workspacePath) || workspacePath,
+      path: workspacePath,
+      rules,
+      memory,
+    })
+  }
+  // Workspaces with content first; otherwise alphabetical.
+  entries.sort((a, b) => {
+    const aFilled = a.rules.length > 0 || a.memory.count > 0
+    const bFilled = b.rules.length > 0 || b.memory.count > 0
+    if (aFilled !== bFilled) return aFilled ? -1 : 1
+    return a.name.localeCompare(b.name)
+  })
+  return entries
+}
+
 function scan({ dshHome, profileName, profileDir, cwd, memoryRoots, workspaces, patchFiles, patchPath, extraSkillRoots, extraPatchFiles, profileInferred }) {
   const patch = patchPath || path.join(profileDir, 'cordis.patch.yml')
   const configWarnings = []
@@ -485,17 +444,22 @@ function scan({ dshHome, profileName, profileDir, cwd, memoryRoots, workspaces, 
 
   const skills = []
   const skillRoots = []
-  for (const [root, rank, label] of [
-    [path.join(project.root, '.dsh', 'skills'), 100, '项目 .dsh/skills'],
-    [path.join(project.root, '.agents', 'skills'), 200, '项目 .agents/skills'],
-    [path.join(dshHome, 'skills'), 400, '用户 ~/.dsh/skills'],
-    [path.join(homedir(), '.agents', 'skills'), 500, '用户 ~/.agents/skills'],
-  ]) {
+  const scanRoot = (root, rank, label, meta) => {
     const { found, exists } = skillsIn(root, rank, label)
-    skillRoots.push({ label, root, rank, exists, count: found.length })
-    skills.push(...found)
+    skillRoots.push({ label, root, rank, exists, count: found.length, ...meta })
+    for (const skill of found) skills.push({ ...skill, ...meta })
   }
-  skills.sort((a, b) => a.rank - b.rank || a.name.localeCompare(b.name))
+
+  // Workspace skills come from every registered workspace, not only the guessed
+  // current one: the registry is the only authority the Host has here.
+  for (const workspacePath of workspaces || []) {
+    const workspaceName = path.basename(workspacePath) || workspacePath
+    const meta = { scope: 'workspace', workspace: workspaceName, workspacePath }
+    scanRoot(path.join(workspacePath, '.dsh', 'skills'), 100, '项目 .dsh/skills', meta)
+    scanRoot(path.join(workspacePath, '.agents', 'skills'), 200, '项目 .agents/skills', meta)
+  }
+  scanRoot(path.join(dshHome, 'skills'), 400, '用户 ~/.dsh/skills', { scope: 'global' })
+  scanRoot(path.join(homedir(), '.agents', 'skills'), 500, '用户 ~/.agents/skills', { scope: 'global' })
 
   for (const raw of extraSkillRoots || []) {
     const root = expandHome(raw)
@@ -510,27 +474,31 @@ function scan({ dshHome, profileName, profileDir, cwd, memoryRoots, workspaces, 
       skills.push({
         rank: 350,
         label: '自定义',
+        scope: 'global',
         dir: path.basename(root),
         name: meta.name || path.basename(root),
         desc: capText(meta.description, 1000),
         bytes: fileSize(direct),
         path: direct,
       })
-      skillRoots.push({ label: '自定义', root, rank: 350, exists: true, count: 1 })
+      skillRoots.push({ label: '自定义', root, rank: 350, exists: true, count: 1, scope: 'global' })
       continue
     }
     const { found, exists } = skillsIn(root, 350, '自定义')
-    skillRoots.push({ label: '自定义', root, rank: 350, exists, count: found.length })
-    skills.push(...found)
+    skillRoots.push({ label: '自定义', root, rank: 350, exists, count: found.length, scope: 'global' })
+    for (const skill of found) skills.push({ ...skill, scope: 'global' })
   }
-  skills.sort((a, b) => a.rank - b.rank || a.name.localeCompare(b.name))
+  skills.sort(
+    (a, b) =>
+      a.rank - b.rank ||
+      String(a.workspace || '').localeCompare(String(b.workspace || '')) ||
+      a.name.localeCompare(b.name),
+  )
 
   for (const raw of extraPatchFiles || []) {
     const file = expandHome(raw)
     if (file && !isFile(file)) configWarnings.push('extraPatchFiles 中的 ' + raw + ' 不存在')
   }
-
-  const memory = mergeMemory([...workspaceStores(workspaces), ...configuredStores(memoryRoots, configWarnings)])
 
   const { mcp, presets, registry } = scanPresetRows(patchFiles)
 
@@ -557,8 +525,7 @@ function scan({ dshHome, profileName, profileDir, cwd, memoryRoots, workspaces, 
       bytes: fileSize(globalFile),
       sections: globalText ? headings(globalText).slice(0, 12) : [],
     },
-    chain: memoryChain(project.root, cwd),
-    memory,
+    workspaces: workspaceEntries(workspaces),
     skillRoots,
     skills,
     mcp,

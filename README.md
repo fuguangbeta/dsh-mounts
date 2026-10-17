@@ -77,17 +77,17 @@ The panel does not modify any file and offers no settings.
 
 | 栏 | 来源 | 展开后 |
 |------|------|------|
-| 预规定 | `~/.dsh/AGENTS.md`，以及项目根至当前目录链上的四个候选文件 | 各文件的 `##` 章节标题 |
-| 记忆库 | 工作区内 `<ws>/memory`、`.dsh/memory`、`.agents/memory` | 按组列出库与文件（名称、大小、日期） |
-| 技能 | 四个扫描根：项目 `.dsh/skills`、项目 `.agents/skills`、用户 `~/.dsh/skills`、用户 `~/.agents/skills` | 描述全文、文件路径、来源根 |
+| 预规定 | 全局 `~/.dsh/AGENTS.md`（每个会话都注入的那份） | 该文件的 `##` 章节标题 |
+| 记忆库 | 每个已注册工作区的 `AGENTS.md` / `AGENTS.local.md`（注入），以及 `memory`、`.dsh/memory`、`.agents/memory` 下的 `.md`（不自动读）；按工作区分组 | 规则文件章节数；记忆文件名、大小、日期 |
+| 技能 | 全局：`~/.dsh/skills`、`~/.agents/skills`；工作区：每个已注册工作区的 `<ws>/.dsh/skills`、`<ws>/.agents/skills` | 描述全文、文件路径、来源 |
 | MCP 服务器 | profile 补丁 + 全局补丁层中的 `dsh-mcp-client` 行 | 补丁行 id、env 变量名、目标、所属预设 |
 | 智能体预设 | profile 补丁 + 全局补丁层中的预设行，以及内置的 `standard`、`ptc`、`minimal`、`cordis` | 补丁行、标题 |
 
 | Group | Source | Expanded |
 |------|------|------|
-| Instructions | `~/.dsh/AGENTS.md` plus the four candidate files from the project root down to the working directory | The `##` headings of each file |
-| Memory libraries | Workspace `<ws>/memory`, `.dsh/memory`, `.agents/memory` | Libraries and files grouped, with name, size, date |
-| Skills | Four scan roots: project `.dsh/skills`, project `.agents/skills`, user `~/.dsh/skills`, user `~/.agents/skills` | Full description, file path, source root |
+| Instructions | The global `~/.dsh/AGENTS.md` — the one injected into every session | The `##` headings of that file |
+| Memory libraries | Every registered workspace's `AGENTS.md` / `AGENTS.local.md` (injected) plus the `.md` files under `memory`, `.dsh/memory`, `.agents/memory` (not read automatically); grouped by workspace | Instruction sections; memory file name, size, date |
+| Skills | Global: `~/.dsh/skills`, `~/.agents/skills`; workspace: `<ws>/.dsh/skills`, `<ws>/.agents/skills` of every registered workspace | Full description, file path, source |
 | MCP servers | `dsh-mcp-client` rows in the profile patch and the global patch layer | Patch row id, env variable names, target, owning preset |
 | Agent presets | Preset rows in the profile patch and the global patch layer, plus the built-in `standard`, `ptc`, `minimal`, `cordis` | Patch row, title |
 
@@ -100,7 +100,8 @@ The panel does not modify any file and offers no settings.
 | L1 | 打开面板 | 五个栏目标题及计数 |
 | L2 | 点击栏目标题 | 该栏条目 |
 | L3 | 点击条目 | 该条目自身的字段 |
-| L3+ | 点击记忆库的库标题 | 文件列表，每行可「打开」 |
+| L3+ | 点击记忆库的工作区标题 | 该工作区的规则文件与记忆文件 |
+| L4 | 点技能的工作区分组 | 该工作区的技能条目 |
 
 初始状态停留在 L1。展开内容仅涉及被展开条目自身的字段。
 
@@ -109,7 +110,8 @@ The panel does not modify any file and offers no settings.
 | L1 | Opening the panel | The five group titles and their counts |
 | L2 | Clicking a group title | The entries of that group |
 | L3 | Clicking an entry | The fields of that entry |
-| L3+ | Clicking a memory-library title | The file list, each row openable |
+| L3+ | Clicking a memory workspace title | That workspace's instruction files and memory files |
+| L4 | Clicking a skill workspace group | The skills of that workspace |
 
 The initial state rests at L1. An expansion only ever shows the fields of the expanded entry itself.
 
@@ -184,8 +186,11 @@ re-validated on the Host side.
 | 工作区取最近更新的一个 | 可能不是当前会话所在的工作区 |
 | 不标示当前会话使用的预设 | 只列出已定义的预设，不判断哪一个正在生效 |
 | 不列 bundle 内置技能 | 内置技能分散在各 bundle 内，无法统一枚举；只显示文件系统上的技能 |
+| 工作区技能会列出所有工作区的 | 扫描范围是工作区注册表，不是当前会话；别的工作区的技能当前会话可能用不到 |
+| Workspace skills cover every workspace | The scope is the workspace registry, not the current session; another workspace's skills may be unusable here |
 | 不自动读取 customSkillDirs | 该配置属于另一个插件 |
 | 没有设置界面 | DSH 配置无法写入 include 插入的行；记忆库只从工作区 memory/ 目录发现 |
+| 记忆库块同时列规则文件 | 二者都按工作区归属，但只有规则文件会被注入 |
 | 「打开」在部分环境下降级为「复制路径」 | 属预期行为，点击后完整路径进入剪贴板 |
 
 | Limitation | Note |
@@ -200,6 +205,7 @@ re-validated on the Host side.
 | Bundle-embedded skills are not listed | They are spread across bundles and cannot be enumerated uniformly; only skills on the filesystem are shown |
 | `customSkillDirs` is not read automatically | That setting belongs to another plugin |
 | No settings UI | DSH settings cannot write a row inserted by include; memory libraries come only from workspace memory/ directories |
+| The memory group also lists instruction files | Both are grouped by workspace, but only instruction files are injected |
 | "Open" degrades to "Copy path" in some environments | Expected behaviour; clicking places the full path on the clipboard |
 
 ---
