@@ -16,9 +16,10 @@ dsh-mounts 是 DeepSeek Harness 的一个只读侧栏面板。它把当前 profi
 用得上的场合，是想确认"我到底配了什么"。它不判断这些配置是否生效——某个 MCP 在补丁里有一行，
 不代表进程正在跑；某个技能出现在列表里，也不代表这一轮加载过。
 
-记忆库那一栏读的是 `~/.zcode/cli/memories/projects/`，ZCode 的目录，DSH 本身不读它。
-面板只是把文件名和大小列出来。DSH 真正自动注入的是各工作区的 `AGENTS.md` 和
-`AGENTS.local.md`，那部分在「预规定」一栏。
+记忆库那一栏读的是一个写死的路径 `~/.zcode/cli/memories/projects/`。有这个目录就列出文件，
+没有的话整块不显示。所以如果你没用过 ZCode，这一栏不会出现——不是坏了，是没有可列的东西。
+DSH 本身不读这个目录，它真正自动注入的是各工作区的 `AGENTS.md` 和 `AGENTS.local.md`，
+那部分在「预规定」一栏。
 
 面板不读文件内容。要看正文，点每行的「打开」，交给系统默认程序。这个按钮依赖 DSH 自带的
 Session Remote，拿不到的时候会变成「复制路径」。
@@ -35,9 +36,11 @@ It is useful when you want to confirm what you have configured. It does not tell
 configuration is active: an MCP row in the patch does not mean the process is running, and a skill in
 the list does not mean it was loaded this turn.
 
-The memory-library section reads `~/.zcode/cli/memories/projects/`, which belongs to ZCode;
-DSH does not read it. The panel only lists file names and sizes. What DSH actually injects are the
-`AGENTS.md` and `AGENTS.local.md` files in each workspace, shown in the first section.
+The memory-library section reads one hard-coded path, `~/.zcode/cli/memories/projects/`.
+If that directory exists the files are listed; if not, the whole section is hidden. So unless you have
+used ZCode, you will not see it — it is not broken, there is simply nothing to list. DSH never reads
+that directory; what DSH actually injects are the `AGENTS.md` and `AGENTS.local.md` files
+in each workspace, shown in the first section.
 
 The panel does not read file contents. To read a file, use the "Open" button and let the system's
 default application handle it. That button relies on DSH's built-in Session Remote and falls back to
@@ -139,7 +142,7 @@ profile 的 `package.json` 和 `cordis.patch.yml` 交给 `install_bundle` 处理
 | 限制 | 原因 | 影响 |
 |------|------|------|
 | 内置预设只有名字 | 定义在 bundle（`app.asar`）内，第三方读不到 | 只能显示 id，不能展开 |
-| 记忆库路径写死 | 只认 `~/.zcode/cli/memories/projects/` | 别处类似的目录不会被发现 |
+| 记忆库路径写死 | 只认 `~/.zcode/cli/memories/projects/` | 没有这个目录时整块隐藏；别处的目录不会被发现 |
 | 技能描述上限 400 字 | 控制响应体积 | 超长时末尾加「…」 |
 | MCP 的预设列是推导的 | API 没有 MCP→预设 的映射 | 推不出来就留空 |
 | 工作区是猜的 | 取注册表里 `updatedAt` 最新的那个 | 可能不是你当前会话所在的 |
