@@ -6,39 +6,39 @@
 [![许可](https://img.shields.io/github/license/fuguangbeta/dsh-mounts?label=%E8%AE%B8%E5%8F%AF)](https://github.com/fuguangbeta/dsh-mounts/blob/main/LICENSE)
 [![Star](https://img.shields.io/github/stars/fuguangbeta/dsh-mounts?label=Star&color=yellow)](https://github.com/fuguangbeta/dsh-mounts/stargazers)
 
-DeepSeek Harness 的只读侧栏面板，集中呈现当前 profile 的挂载内容。面板不注册工具，不注入上下文，
-不写文件，不发起网络请求。安装不改变模型所见的提示词。
+## 关于本工具 · *About This Tool*
 
-## 概述 · *Overview*
+dsh-mounts 是 DeepSeek Harness 的只读侧栏面板，将当前 profile 的挂载内容归为五类，同页呈现。
+面板不注册工具，不注入上下文，不写文件，不发起网络请求。安装不改变模型所见的提示词。
 
-面板将 profile 的挂载内容归为五类，同页呈现。用途限于确认配置内容，不判定其是否生效：
-补丁中存在 MCP 行，不代表对应进程正在运行；技能出现在列表中，不代表本轮已加载。
+面板的用途限于确认配置内容，不判定其是否生效：补丁中存在 MCP 行，不代表对应进程正在运行；
+技能出现在列表中，不代表本轮已加载。
 
 记忆库一栏读取固定路径 `~/.zcode/cli/memories/projects/`，路径存在时列出文件，否则整栏省略。
 DSH 不读取该目录；DSH 自动注入的内容为各工作区的 `AGENTS.md` 与 `AGENTS.local.md`，
 归入「预规定」一栏。
 
 面板不读取文件内容。记忆库仅取 `stat` 元数据，技能仅取 frontmatter 中的 description。
-查看正文使用每行的「打开」，交由系统默认程序处理。该操作使用 DSH 内置的 Session Remote，
-不可用时降级为「复制路径」。
-
-功能范围限于只读呈现，不提供编辑、启停与删除。
+查看正文使用每行的「打开」，交由系统默认程序处理；该操作使用 DSH 内置的 Session Remote，
+不可用时降级为「复制路径」。功能范围限于只读呈现，不提供编辑、启停与删除。
 
 *This is a read-only sidebar panel for DeepSeek Harness. It presents the mounts of the current profile
-in five groups on one page. Its purpose is to report what is configured, not whether it is active: an
-MCP row in the patch does not imply a running process, and a listed skill was not necessarily loaded
-this turn. The memory-library group reads a fixed path, `~/.zcode/cli/memories/projects/`, and is
-omitted when that path is absent; DSH does not read it, and what DSH injects are the `AGENTS.md`
-and `AGENTS.local.md` files of each workspace, reported in the first group. File contents are
-never read: the memory libraries are only `stat`-ed and skills contribute the description line
-from their frontmatter. Reading a file is delegated to the system default application through DSH's
-Session Remote, with a copy-path fallback. The scope is read-only presentation.*
+in five groups on one page. It registers no tools, adds nothing to the context, writes no files, and
+does not use the network; installing it does not change the prompt the model receives. Its purpose is
+to report what is configured, not whether it is active: an MCP row in the patch does not imply a
+running process, and a listed skill was not necessarily loaded this turn. The memory-library group
+reads a fixed path, `~/.zcode/cli/memories/projects/`, and is omitted when that path is absent;
+DSH does not read it, and what DSH injects are the `AGENTS.md` and `AGENTS.local.md` files
+of each workspace, reported in the first group. File contents are never read: the memory libraries are
+only `stat`-ed and skills contribute the description line from their frontmatter. Reading a file
+is delegated to the system default application through DSH's Session Remote, with a copy-path fallback.
+The scope is read-only presentation.*
 
 ---
 
-## 界面 · *Interface*
+## 1. 界面 · *Interface*
 
-面板初始状态：
+### 1.1 初始状态 · *Initial State*
 
 ```
 挂载清单  [只读]  [刷新]
@@ -51,7 +51,7 @@ Session Remote, with a copy-path fallback. The scope is read-only presentation.*
 ▸ 智能体预设 (5)
 ```
 
-记忆库展开至文件级：
+### 1.2 记忆库展开至文件级 · *Library Expanded to Files*
 
 ```
 ▾ 记忆库 (6 个库 · 34 个文件)
@@ -65,9 +65,7 @@ Session Remote, with a copy-path fallback. The scope is read-only presentation.*
 
 两图为示意，数据非实测。
 
----
-
-## 内容来源 · *Sources*
+### 1.3 栏目与数据来源 · *Groups and Data Sources*
 
 | 栏 | 来源 | 展开后 |
 |------|------|------|
@@ -77,7 +75,9 @@ Session Remote, with a copy-path fallback. The scope is read-only presentation.*
 | MCP 服务器 | profile 补丁中的 `dsh-mcp-client` 行 | 补丁行 id、env 变量名、目标 |
 | 智能体预设 | profile 自定义预设，以及内置的 `standard`、`ptc`、`minimal`、`cordis` | 补丁行、标题 |
 
-## 层级与展开 · *Hierarchy*
+---
+
+## 2. 层级与展开 · *Hierarchy*
 
 | 层级 | 触发 | 内容 |
 |------|------|------|
@@ -90,7 +90,9 @@ Session Remote, with a copy-path fallback. The scope is read-only presentation.*
 
 ---
 
-## 安装 · *Installation*
+## 3. 安装 · *Installation*
+
+### 3.1 安装步骤 · *Steps*
 
 需要 Creator 模式（`cordis` preset），该预设提供 `plugin_manager`。
 
@@ -101,12 +103,14 @@ Session Remote, with a copy-path fallback. The scope is read-only presentation.*
 profile 的 `package.json` 与 `cordis.patch.yml` 由 `install_bundle` 维护。手工修改
 或于 profile 目录执行 pnpm 均不符合官方流程。
 
-客户端改动通过硬刷新（Ctrl+Shift+R）生效。Host 侧（`index.js`）改动需以 `plugin_manager`
-将 `include:mounts-panel` 关→开，触发模块重新 import。
+### 3.2 代码改动生效方式 · *Applying Code Changes*
+
+客户端依赖（`client.js`）改动通过硬刷新（Ctrl+Shift+R）生效。Host 侧依赖（`index.js`）
+改动需以 `plugin_manager` 将 `include:mounts-panel` 关→开，触发模块重新 import。
 
 ---
 
-## 安全模型 · *Security Model*
+## 4. 安全模型 · *Security Model*
 
 - 不写文件，不启动子进程，不发起出站请求。
 - 仅暴露一个 HTTP 端点 `GET /dsh-mounts/api`。
@@ -120,7 +124,7 @@ profile 的 `package.json` 与 `cordis.patch.yml` 由 `install_bundle` 维护。
 
 ---
 
-## 已知限制 · *Known Limitations*
+## 5. 已知限制 · *Known Limitations*
 
 | 限制 | 原因 | 影响 |
 |------|------|------|
@@ -134,7 +138,22 @@ profile 的 `package.json` 与 `cordis.patch.yml` 由 `install_bundle` 维护。
 
 ---
 
-## 环境要求 · *Requirements*
+## 6. 开发 · *Development*
+
+    dsh-mounts/
+      package.json       包清单、dsh.bundle、dsh.client
+      cordis.patch.yml   单条 insert：mounts-panel
+      index.js           Host 侧：只读扫描与 GET /dsh-mounts/api
+      client.js          Web 侧：侧栏一级面板与 main keyed 槽
+      locale/{zh,en}.json
+      icon.svg
+
+读盘文本先做 `\r\n?` 到 `\n` 的规范化。CRLF 的 `SKILL.md` 会使 frontmatter 解析静默失败，
+description 退化为空字符串。
+
+---
+
+## 系统要求 · *System Requirements*
 
 | 项 | 要求 |
 |------|------|
@@ -157,33 +176,16 @@ Windows is verified; other platforms are untested. No third-party dependencies.
 （Ctrl+Shift+R）；无效则重启 DSH。
 
 **改动代码后界面无变化。**
-客户端改动需硬刷新。Host 侧改动需以 `plugin_manager` 将 `include:mounts-panel` 关→开。
+参见 §3.2。
 
 **显示的工作区与当前会话不符。**
-面板取注册表中最近更新的工作区，无会话级绑定，详见「已知限制」。
+面板取注册表中最近更新的工作区，无会话级绑定，见 §5。
 
 **「打开」显示为「复制路径」。**
 该页面无法取得 Session Remote，属预期降级。点击后完整路径进入剪贴板。
 
 **为何不提供正文预览。**
 正文预览需要在端点中开放文件读取，而该端点仅以 Host 头作准入控制，不做会话鉴权。故仅提供「打开」。
-
----
-
-## 开发 · *Development*
-
-    dsh-mounts/
-      package.json       包清单、dsh.bundle、dsh.client
-      cordis.patch.yml   单条 insert：mounts-panel
-      index.js           Host 侧：只读扫描与 GET /dsh-mounts/api
-      client.js          Web 侧：侧栏一级面板与 main keyed 槽
-      locale/{zh,en}.json
-      icon.svg
-
-- `client.js` 改动：硬刷新。
-- `index.js` 改动：`plugin_manager` 将 `include:mounts-panel` 关→开。
-- 读盘文本先做 `\r\n?` 到 `\n` 的规范化。CRLF 的 `SKILL.md` 会使 frontmatter 解析静默失败，
-  description 退化为空字符串。
 
 ---
 
