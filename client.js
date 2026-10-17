@@ -53,7 +53,8 @@ window.__ModuleLoader__.load({
       'detail.copyFailed': '复制失败：浏览器没有授予剪贴板权限',
       'detail.openFailed': '打开失败：系统默认程序没有接受这个文件',
       'rules.empty': '未找到全局 AGENTS.md。',
-      'rules.inject': '注入',
+      'rules.inject': '自动注入',
+      'rules.injectHint': '该文件会被 DSH 自动注入到本工作区的每个会话',
       'memory.empty': '未发现记忆库。',
       'memory.emptyHint': '把记忆文件放在工作区的 memory/ 目录（<工作区>/memory、.dsh/memory、.agents/memory）。',
       'skills.global': '全局技能',
@@ -104,7 +105,8 @@ window.__ModuleLoader__.load({
       'detail.copyFailed': 'Copy failed: the browser denied clipboard access',
       'detail.openFailed': 'Open failed: the default application did not accept this file',
       'rules.empty': 'No global AGENTS.md found.',
-      'rules.inject': 'Injected',
+      'rules.inject': 'Auto-injected',
+      'rules.injectHint': 'This file is injected into every session of this workspace',
       'memory.empty': 'No memory stores found.',
       'memory.emptyHint': 'Put memory files in a workspace memory/ directory (<ws>/memory, .dsh/memory, .agents/memory).',
       'skills.global': 'Global skills',
@@ -135,39 +137,37 @@ window.__ModuleLoader__.load({
 .dmp-meta-key{flex:none;}
 .dmp-meta-value{min-width:0;overflow:hidden;text-overflow:ellipsis;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:11.5px;color:var(--dsw-alias-label-primary);}
 .dmp-block{margin-top:12px;border:1px solid var(--dsw-alias-border-l1);border-radius:12px;background:var(--dsw-alias-bg-layer-1);overflow:hidden;}
-.dmp-block-head{display:flex;align-items:center;gap:10px;width:100%;padding:12px 16px;background:none;border:0;color:inherit;font:inherit;text-align:left;cursor:pointer;}
+.dmp-block-head{display:flex;align-items:center;gap:10px;width:100%;padding-block:12px;padding-right:16px;background:none;border:0;color:inherit;font:inherit;text-align:left;cursor:pointer;}
 .dmp-block-head:hover{background:var(--dsw-alias-bg-layer-2);}
 .dmp-block-head:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:-2px;}
 .dmp-arrow{flex:none;width:12px;font-size:11px;color:var(--dsw-alias-label-secondary);}
 .dmp-block-title{font-size:13.5px;font-weight:600;}
 .dmp-block-count{margin-left:auto;font-size:12.5px;color:var(--dsw-alias-label-secondary);font-variant-numeric:tabular-nums;}
 .dmp-block-body{border-top:1px solid var(--dsw-alias-border-l1);}
-.dmp-group{display:flex;align-items:baseline;gap:6px;padding:10px 16px 4px;font-size:11.5px;color:var(--dsw-alias-label-secondary);}
-.dmp-group b{font-weight:500;color:var(--dsw-alias-label-primary);}
-.dmp-group-meta{font-variant-numeric:tabular-nums;white-space:nowrap;}
-.dmp-mem-head{display:flex;align-items:baseline;gap:6px;width:100%;padding:9px 16px;background:none;border:0;color:inherit;font:inherit;font-size:11.5px;text-align:left;cursor:pointer;color:var(--dsw-alias-label-secondary);}
+.dmp-mem-head{display:flex;align-items:baseline;gap:6px;width:100%;padding-block:9px;padding-right:16px;background:none;border:0;color:inherit;font:inherit;font-size:11.5px;text-align:left;cursor:pointer;color:var(--dsw-alias-label-secondary);}
 .dmp-mem-head:hover{background:var(--dsw-alias-bg-layer-2);}
 .dmp-mem-head:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:-2px;}
 .dmp-mem-head b{font-weight:500;color:var(--dsw-alias-label-primary);}
 .dmp-mem-count{font-variant-numeric:tabular-nums;}
 .dmp-mem-latest{margin-left:auto;font-variant-numeric:tabular-nums;white-space:nowrap;}
 .dmp-mem-body{border-top:1px solid var(--dsw-alias-border-l1);}
-.dmp-file{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:12px;padding:3px 16px 3px 40px;font-size:11.5px;line-height:1.6;}
+.dmp-file{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:12px;padding-block:3px;padding-right:16px;font-size:11.5px;line-height:1.6;}
+.dmp-file.dmp-rule-row{grid-template-columns:minmax(0,1fr) auto auto auto;gap:12px;padding-block:3px;padding-right:16px;font-size:11.5px;line-height:1.6;}
 .dmp-file-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--dsw-alias-label-primary);}
 .dmp-file-meta{font-variant-numeric:tabular-nums;color:var(--dsw-alias-label-secondary);white-space:nowrap;}
 .dmp-open-btn{appearance:none;border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-primary);border-radius:6px;padding:0 8px;font-size:11px;line-height:18px;cursor:pointer;font-family:inherit;white-space:nowrap;}
 .dmp-open-btn:hover{border-color:var(--dsw-alias-border-l2);}
 .dmp-open-btn:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:2px;}
-.dmp-open-notice{padding:8px 16px;font-size:11.5px;color:var(--dsw-alias-state-success-primary);}
-.dmp-open-error{padding:8px 16px;font-size:11.5px;color:var(--dsw-alias-state-error-primary);}
+.dmp-open-notice{padding-block:8px;padding-right:16px;font-size:11.5px;color:var(--dsw-alias-state-success-primary);}
+.dmp-open-error{padding-block:8px;padding-right:16px;font-size:11.5px;color:var(--dsw-alias-state-error-primary);}
 .dmp-item{border-top:1px solid var(--dsw-alias-border-l1);}
 .dmp-item:first-child{border-top:0;}
-.dmp-item.static{display:flex;align-items:center;gap:14px;padding:10px 16px;}
+.dmp-item.static{display:flex;align-items:center;gap:14px;padding-block:10px;padding-right:16px;}
 .dmp-item.expandable{display:block;}
-.dmp-row-head{display:grid;grid-template-columns:12px minmax(0,1fr) auto;align-items:center;gap:10px;width:100%;padding:10px 16px;background:none;border:0;color:inherit;font:inherit;text-align:left;cursor:pointer;}
+.dmp-row-head{display:grid;grid-template-columns:12px minmax(0,1fr) auto;align-items:center;gap:10px;width:100%;padding-block:10px;padding-right:16px;background:none;border:0;color:inherit;font:inherit;text-align:left;cursor:pointer;}
 .dmp-row-head:hover{background:var(--dsw-alias-bg-layer-2);}
 .dmp-row-head:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:-2px;}
-.dmp-row-body{padding:2px 16px 12px 40px;font-size:11.5px;line-height:1.7;color:var(--dsw-alias-label-secondary);}
+.dmp-row-body{padding-block:2px 12px;padding-right:16px;font-size:11.5px;line-height:1.7;color:var(--dsw-alias-label-secondary);}
 .dmp-detail-line{display:flex;gap:8px;min-width:0;}
 .dmp-detail-label{flex:none;opacity:.8;}
 .dmp-detail-value{min-width:0;word-break:break-word;color:var(--dsw-alias-label-secondary);}
@@ -177,11 +177,13 @@ window.__ModuleLoader__.load({
 .dmp-secondary{margin-top:2px;font-size:11.5px;line-height:1.5;color:var(--dsw-alias-label-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .dmp-item-meta{flex:none;font-size:11.5px;color:var(--dsw-alias-label-secondary);font-variant-numeric:tabular-nums;white-space:nowrap;text-align:right;max-width:220px;overflow:hidden;text-overflow:ellipsis;}
 .dmp-mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;}
-.dmp-empty{padding:12px 16px;font-size:12px;color:var(--dsw-alias-label-secondary);}
+.dmp-empty{padding-block:12px;padding-right:16px;font-size:12px;color:var(--dsw-alias-label-secondary);}
 .dmp-empty-hint{margin-top:2px;font-size:11px;line-height:1.6;color:var(--dsw-alias-label-secondary);}
-.dmp-rule-row{width:100%;background:none;border:0;font:inherit;font-size:11.5px;text-align:left;cursor:pointer;color:inherit;}
-.dmp-rule-section{padding:2px 16px 2px 34px;font-size:11px;color:var(--dsw-alias-label-secondary);}
-.dmp-warning{padding:8px 16px;font-size:11px;line-height:1.6;color:var(--dsw-alias-state-warn-primary);border-top:1px solid var(--dsw-alias-border-l1);}
+.dmp-indent-0{padding-left:16px;}
+.dmp-indent-1{padding-left:32px;}
+.dmp-indent-2{padding-left:48px;}
+.dmp-indent-3{padding-left:64px;}
+.dmp-warning{padding-block:8px;padding-right:16px;font-size:11px;line-height:1.6;color:var(--dsw-alias-state-warn-primary);border-top:1px solid var(--dsw-alias-border-l1);}
 .dmp-foot{margin-top:18px;display:flex;flex-wrap:wrap;gap:6px 16px;font-size:11.5px;color:var(--dsw-alias-label-secondary);}
 `
 
@@ -225,7 +227,7 @@ window.__ModuleLoader__.load({
           'button',
           {
             type: 'button',
-            className: 'dmp-block-head',
+            className: 'dmp-block-head dmp-indent-0',
             'aria-expanded': props.open,
             'aria-controls': panelId,
             onClick: props.onToggle,
@@ -265,8 +267,12 @@ window.__ModuleLoader__.load({
         ? h('div', { className: 'dmp-item-meta', title: String(props.metaTitle || props.meta) }, props.meta)
         : null
 
+      const depth = Number.isInteger(props.depth) ? props.depth : 0
+      const headClass = 'dmp-indent-' + depth
+      const bodyClass = 'dmp-indent-' + (depth + 1)
+
       if (!props.expandable) {
-        return h('div', { className: 'dmp-item static' }, text, meta)
+        return h('div', { className: 'dmp-item static ' + headClass }, text, meta)
       }
 
       const bodyId = 'dmp-row-' + props.id
@@ -277,7 +283,7 @@ window.__ModuleLoader__.load({
           'button',
           {
             type: 'button',
-            className: 'dmp-row-head',
+            className: 'dmp-row-head ' + headClass,
             'aria-expanded': Boolean(props.open),
             'aria-controls': bodyId,
             onClick: props.onToggle,
@@ -286,7 +292,7 @@ window.__ModuleLoader__.load({
           text,
           meta,
         ),
-        h('div', { id: bodyId, className: 'dmp-row-body', hidden: !props.open }, props.detail),
+        h('div', { id: bodyId, className: 'dmp-row-body ' + bodyClass, hidden: !props.open }, props.detail),
       )
     }
 
@@ -519,7 +525,10 @@ window.__ModuleLoader__.load({
             const configWarnings = Array.isArray(data.configWarnings) ? data.configWarnings : []
             const warningsFor = (prefix) => configWarnings.filter((warning) => String(warning).includes(prefix))
             const warningLines = (list, keyPrefix) =>
-              list.map((warning, index) => h('div', { className: 'dmp-warning', key: keyPrefix + index }, warning))
+              list.map(
+                (warning, index) =>
+                  h('div', { className: 'dmp-warning dmp-indent-1', key: keyPrefix + index }, warning),
+              )
             const filledWorkspaces = workspaces.filter(
               (entry) => (entry.rules || []).length > 0 || ((entry.memory && entry.memory.count) || 0) > 0,
             )
@@ -551,6 +560,7 @@ window.__ModuleLoader__.load({
                   secondary: sectionMeta(globalRules),
                   mono: true,
                   expandable: true,
+                  depth: 1,
                   open: Boolean(openRows['rule-global']),
                   onToggle: () => toggleRow('rule-global'),
                   detail: [
@@ -588,20 +598,21 @@ window.__ModuleLoader__.load({
             }
             workspaceGroups.sort((a, b) => a.name.localeCompare(b.name))
             const skillIndex = new Map(skills.map((skill, index) => [skill.path, index]))
-            const skillRow = (skill) =>
+            const skillRow = (skill, depth) =>
               h(Row, {
                 key: skill.path,
                 id: 'skill-' + skillIndex.get(skill.path),
                 name: skill.name,
                 secondary: skill.desc || '—',
                 meta: bytes(skill.bytes),
+                depth,
               })
             const skillSectionHead = (key, label, open, bodyId) =>
               h(
                 'button',
                 {
                   type: 'button',
-                  className: 'dmp-mem-head',
+                  className: 'dmp-mem-head dmp-indent-1',
                   'aria-expanded': open,
                   'aria-controls': bodyId,
                   onClick: () => toggleSkillsScope(key),
@@ -622,7 +633,7 @@ window.__ModuleLoader__.load({
                   'button',
                   {
                     type: 'button',
-                    className: 'dmp-mem-head',
+                    className: 'dmp-mem-head dmp-indent-2',
                     title: group.path,
                     'aria-expanded': open,
                     'aria-controls': bodyId,
@@ -632,7 +643,7 @@ window.__ModuleLoader__.load({
                   h('b', null, group.name),
                   h('span', { className: 'dmp-mem-count' }, ' (' + group.skills.length + ')'),
                 ),
-                h('div', { id: bodyId, className: 'dmp-mem-body', hidden: !open }, group.skills.map(skillRow)),
+                h('div', { id: bodyId, className: 'dmp-mem-body', hidden: !open }, group.skills.map((skill) => skillRow(skill, 3))),
               )
             })
 
@@ -654,8 +665,8 @@ window.__ModuleLoader__.load({
                   'dmp-skills-global',
                   globalOpen,
                   globalSkills.length
-                    ? globalSkills.map(skillRow)
-                    : h('div', { className: 'dmp-empty' }, t('skills.globalEmpty')),
+                    ? globalSkills.map((skill) => skillRow(skill, 2))
+                    : h('div', { className: 'dmp-empty dmp-indent-2' }, t('skills.globalEmpty')),
                 ),
               ),
               h(
@@ -672,7 +683,7 @@ window.__ModuleLoader__.load({
                   workspaceOpen,
                   workspaceGroups.length
                     ? workspaceNodes
-                    : h('div', { className: 'dmp-empty' }, t('skills.workspaceEmpty')),
+                    : h('div', { className: 'dmp-empty dmp-indent-2' }, t('skills.workspaceEmpty')),
                 ),
               ),
             )
@@ -685,6 +696,7 @@ window.__ModuleLoader__.load({
                 name: (server.server || server.row) + ' · ' + (server.transport || '?'),
                 secondary: server.target || '—',
                 meta: server.presetId || '',
+                depth: 1,
                 expandable: true,
                 open: Boolean(openRows[rowId]),
                 onToggle: () => toggleRow(rowId),
@@ -712,6 +724,7 @@ window.__ModuleLoader__.load({
                   name: preset.id,
                   secondary: preset.title || '—',
                   meta: 'MCP × ' + preset.mcp,
+                  depth: 1,
                   expandable: true,
                   open: Boolean(openRows[rowId]),
                   onToggle: () => toggleRow(rowId),
@@ -726,6 +739,7 @@ window.__ModuleLoader__.load({
                   key: 'builtin-' + id,
                   name: id,
                   secondary: t('preset.builtinRow'),
+                  depth: 1,
                 }),
               ),
             ]
@@ -791,7 +805,9 @@ window.__ModuleLoader__.load({
                   open: Boolean(openBlocks.rules),
                   onToggle: () => toggleBlock('rules'),
                 },
-                ruleRows.length ? ruleRows : h('div', { className: 'dmp-empty' }, t('rules.empty')),
+                ruleRows.length
+                  ? ruleRows
+                  : h('div', { className: 'dmp-empty dmp-indent-1' }, t('rules.empty')),
               ),
               h(
                 Block,
@@ -809,8 +825,8 @@ window.__ModuleLoader__.load({
                   null,
                   filledWorkspaces.length
                     ? [
-                        notice ? h('div', { className: 'dmp-open-notice' }, notice) : null,
-                        openError ? h('div', { className: 'dmp-open-error' }, openError) : null,
+                        notice ? h('div', { className: 'dmp-open-notice dmp-indent-1' }, notice) : null,
+                        openError ? h('div', { className: 'dmp-open-error dmp-indent-1' }, openError) : null,
                         filledWorkspaces.map((entry) => {
                           const bodyId = 'dmp-ws-mem-' + entry.name
                           const open = Boolean(openMemoryWorkspaces[entry.name])
@@ -823,7 +839,7 @@ window.__ModuleLoader__.load({
                               'button',
                               {
                                 type: 'button',
-                                className: 'dmp-mem-head',
+                                className: 'dmp-mem-head dmp-indent-1',
                                 title: entry.path,
                                 'aria-expanded': open,
                                 'aria-controls': bodyId,
@@ -836,54 +852,37 @@ window.__ModuleLoader__.load({
                               'div',
                               { id: bodyId, className: 'dmp-mem-body', hidden: !open },
                               rules.length
-                                ? rules.map((rule) => {
-                                    const rowId = 'wsrule-' + rule.path
-                                    const ruleOpen = Boolean(openRows[rowId])
-                                    return h(
+                                ? rules.map((rule) =>
+                                    h(
                                       'div',
-                                      { key: rule.path },
+                                      { className: 'dmp-file dmp-rule-row dmp-indent-2', key: rule.path, title: rule.path },
+                                      h('span', { className: 'dmp-file-name' }, rule.file),
+                                      h('span', { className: 'dmp-chip', title: t('rules.injectHint') }, t('rules.inject')),
+                                      h(
+                                        'span',
+                                        { className: 'dmp-file-meta' },
+                                        (rule.sections || []).length + ' ' + t('label.sections'),
+                                      ),
                                       h(
                                         'button',
                                         {
                                           type: 'button',
-                                          className: 'dmp-file dmp-rule-row',
+                                          className: 'dmp-open-btn',
                                           title: rule.path,
-                                          'aria-expanded': ruleOpen,
-                                          'aria-controls': rowId,
-                                          onClick: () => toggleRow(rowId),
+                                          onClick: () => openFile(rule.path),
                                         },
-                                        h(
-                                          'span',
-                                          { className: 'dmp-arrow', 'aria-hidden': true },
-                                          ruleOpen ? '▾' : '▸',
-                                        ),
-                                        h('span', { className: 'dmp-file-name' }, rule.file),
-                                        h('span', { className: 'dmp-chip' }, t('rules.inject')),
-                                        h(
-                                          'span',
-                                          { className: 'dmp-file-meta' },
-                                          (rule.sections || []).length + ' ' + t('label.sections'),
-                                        ),
+                                        canOpen ? t('detail.open') : t('detail.copy'),
                                       ),
-                                      h(
-                                        'div',
-                                        { id: rowId, className: 'dmp-mem-body', hidden: !ruleOpen },
-                                        (rule.sections || []).length
-                                          ? rule.sections.map((section, index) =>
-                                              h('div', { className: 'dmp-rule-section', key: index }, section),
-                                            )
-                                          : h('div', { className: 'dmp-empty' }, '—'),
-                                      ),
-                                    )
-                                  })
-                                : h('div', { className: 'dmp-empty' }, t('memory.noRules')),
+                                    ),
+                                  )
+                                : h('div', { className: 'dmp-empty dmp-indent-2' }, t('memory.noRules')),
                               mem.count > 0
                                 ? mem.files.map((file) => {
                                     const target = joinPath(file.dir, file.name)
                                     return h(
                                       'div',
                                       {
-                                        className: 'dmp-file',
+                                        className: 'dmp-file dmp-indent-2',
                                         key: (file.dir || '') + '|' + file.name,
                                         title: target,
                                       },
@@ -905,14 +904,14 @@ window.__ModuleLoader__.load({
                                       ),
                                     )
                                   })
-                                : h('div', { className: 'dmp-empty' }, t('memory.noMemory')),
+                                : h('div', { className: 'dmp-empty dmp-indent-2' }, t('memory.noMemory')),
                             ),
                           )
                         }),
                       ]
                     : h(
                         'div',
-                        { className: 'dmp-empty' },
+                        { className: 'dmp-empty dmp-indent-1' },
                         h('div', null, t('memory.empty')),
                         h('div', { className: 'dmp-empty-hint' }, t('memory.emptyHint')),
                       ),
@@ -947,9 +946,9 @@ window.__ModuleLoader__.load({
                 h(
                   React.Fragment,
                   null,
-                  mcpRows.length ? mcpRows : h('div', { className: 'dmp-empty' }, t('mcp.empty')),
+                  mcpRows.length ? mcpRows : h('div', { className: 'dmp-empty dmp-indent-1' }, t('mcp.empty')),
                   warnings.map((warning, index) =>
-                    h('div', { className: 'dmp-warning', key: 'warning-' + index }, warning),
+                    h('div', { className: 'dmp-warning dmp-indent-1', key: 'warning-' + index }, warning),
                   ),
                   warningLines(warningsFor('extraPatchFiles'), 'mcp-warning-'),
                 ),
@@ -966,7 +965,7 @@ window.__ModuleLoader__.load({
                 h(
                   React.Fragment,
                   null,
-                  presetRows.length ? presetRows : h('div', { className: 'dmp-empty' }, t('preset.empty')),
+                  presetRows.length ? presetRows : h('div', { className: 'dmp-empty dmp-indent-1' }, t('preset.empty')),
                   warningLines(warningsFor('extraPatchFiles'), 'preset-warning-'),
                 ),
               ),

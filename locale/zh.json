@@ -1,6 +1,6 @@
 {
   "meta": {
     "title": "挂载清单",
-    "description": "只读展示当前 profile 挂载的记忆链、技能、MCP 服务器与 Agent Preset。"
+    "description": "只读展示全局预规定、各工作区的记忆与规则、技能、MCP 服务器与 Agent Preset。"
   }
 }
