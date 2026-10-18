@@ -48,7 +48,7 @@ window.__ModuleLoader__.load({
       'detail.copy': '复制路径',
       'detail.copied': '已复制到剪贴板',
       'detail.copyFailed': '复制失败：浏览器没有授予剪贴板权限',
-      'detail.openFailed': '打开失败：系统默认程序没有接受这个文件',
+      'detail.openFailed': '打开失败。该路径可能是目录联接，系统打开了它指向的真实位置。',
       'rules.empty': '未找到全局 AGENTS.md。',
       'rules.inject': '自动注入',
       'rules.injectHint': '该文件会被 DSH 自动注入到本工作区的每个会话',
@@ -97,7 +97,7 @@ window.__ModuleLoader__.load({
       'detail.copy': 'Copy path',
       'detail.copied': 'Copied to clipboard',
       'detail.copyFailed': 'Copy failed: the browser denied clipboard access',
-      'detail.openFailed': 'Open failed: the default application did not accept this file',
+      'detail.openFailed': 'Failed to open. The path may be a directory junction; the target location was used.',
       'rules.empty': 'No global AGENTS.md found.',
       'rules.inject': 'Auto-injected',
       'rules.injectHint': 'This file is injected into every session of this workspace',
@@ -481,11 +481,11 @@ window.__ModuleLoader__.load({
             setOpenError(t('detail.copyFailed'))
           }
 
-          const openFile = (target) => {
+          const openFile = (target, copyTarget) => {
             setOpenError(null)
             setNotice(null)
             if (!canOpen) {
-              copyPath(target)
+              copyPath(copyTarget || target)
               return
             }
             openOnHost(target).then(
@@ -836,7 +836,7 @@ window.__ModuleLoader__.load({
                                           type: 'button',
                                           className: 'dmp-open-btn',
                                           title: rule.path,
-                                          onClick: () => openFile(rule.path),
+                                          onClick: () => openFile(rule.realPath || rule.path, rule.path),
                                         },
                                         canOpen ? t('detail.open') : t('detail.copy'),
                                       ),
@@ -865,7 +865,7 @@ window.__ModuleLoader__.load({
                                           type: 'button',
                                           className: 'dmp-open-btn',
                                           title: target,
-                                          onClick: () => openFile(target),
+                                          onClick: () => openFile(file.realPath || target, target),
                                         },
                                         canOpen ? t('detail.open') : t('detail.copy'),
                                       ),

@@ -10,7 +10,7 @@
  *
  * It never writes a file, never spawns a process, and never reaches a network.
  */
-import { readdirSync, readFileSync, statSync } from 'node:fs'
+import { readdirSync, readFileSync, realpathSync, statSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { homedir } from 'node:os'
 import path from 'node:path'
@@ -296,6 +296,15 @@ function expandHome(value) {
   return text
 }
 
+/** Resolve a junction/symlink target; fall back to the logical path. */
+const realOf = (value) => {
+  try {
+    return realpathSync(value)
+  } catch {
+    return value
+  }
+}
+
 function markdownFiles(dir) {
   let entries
   try {
@@ -360,6 +369,7 @@ function mergeMemory(stores) {
         bytes: file.bytes,
         mtime: file.mtime,
         dir: store.dir,
+        realPath: realOf(path.join(store.dir, file.name)),
       })
     }
   }
@@ -406,7 +416,13 @@ function workspaceEntries(workspaces) {
       const file = path.join(workspacePath, fileName)
       const text = readText(file)
       if (text === null) continue
-      rules.push({ file: fileName, path: file, bytes: fileSize(file), sections: headings(text).slice(0, 12) })
+      rules.push({
+        file: fileName,
+        path: file,
+        bytes: fileSize(file),
+        sections: headings(text).slice(0, 12),
+        realPath: realOf(file),
+      })
     }
     const merged = mergeMemory(workspaceStores([workspacePath]))
     const memory = merged.length

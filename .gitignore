@@ -2,3 +2,9 @@ node_modules/
 *.log
 .DS_Store
 Thumbs.db
+
+# DSH 工作区本地配置（记忆库联接等）
+.dsh/
+
+# 工作区项目记忆：本机事实，不进仓库
+AGENTS.local.md
