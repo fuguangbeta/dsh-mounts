@@ -8,3 +8,6 @@ Thumbs.db
 
 # 工作区项目记忆：本机事实，不进仓库
 AGENTS.local.md
+
+# 内部分工与需求文档：含本机路径，不进仓库
+HANDOFF.md
