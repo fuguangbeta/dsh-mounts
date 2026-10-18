@@ -11,3 +11,6 @@ AGENTS.local.md
 
 # 内部分工与需求文档：含本机路径，不进仓库
 HANDOFF.md
+
+# 本地编辑备份
+*.bak*

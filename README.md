@@ -23,6 +23,9 @@ DSH 不读取该目录；DSH 自动注入的内容为各工作区的 `AGENTS.md`
 查看正文使用每行的「打开」，交由系统默认程序处理；该操作使用 DSH 内置的 Session Remote，
 不可用时降级为「复制路径」。面板不修改任何文件，也不提供任何设置项。
 
+如果你只是偶尔想确认一次配置，DSH 自带的 `mounts` 技能同样能给出答案。这个面板的价值在于
+它常驻侧栏、随时可见，不必每次重新问一遍；配置频繁变动时，这一点有些用处。
+
 This is a read-only sidebar panel for DeepSeek Harness. It presents the mounts of the current profile
 in five groups on one page. It registers no tools, adds nothing to the context, writes no files, and
 does not use the network; installing it does not change the prompt the model receives. Its purpose is
@@ -35,6 +38,11 @@ of each workspace, reported in the first group. File contents are never read: th
 only `stat`-ed and skills contribute the description line from their frontmatter. Reading a file
 is delegated to the system default application through DSH's Session Remote, with a copy-path fallback.
 The panel does not modify any file and offers no settings.
+
+If you only want to check the configuration occasionally, DSH's own `mounts` skill answers the
+same question. The value of this panel is that it sits in the sidebar and stays current, so the
+question does not have to be asked again each time; when the configuration changes often, that is
+worth something.
 
 ---
 
@@ -57,7 +65,10 @@ The panel does not modify any file and offers no settings.
 
 *The panel in its initial state.*
 
-五个栏目常显，无内容时展开可见一行说明。*All five groups are always shown; an empty one explains itself when expanded.*
+面板打开时的状态。五个栏目常显，无内容时展开可见一行说明。
+
+*The panel in its initial state. All five groups are always shown, and an empty one explains
+itself when expanded.*
 
 ### 1.2 记忆库展开至文件级 · *Library Expanded to Files*
 
@@ -71,9 +82,10 @@ The panel does not modify any file and offers no settings.
    ▸ another-project
 ```
 
-两图为示意，数据非实测。*Both figures are illustrative; the data is not measured.*
+两图均为示意，数据非实测。未发现记忆库时，该栏显示一行说明，不隐藏。
 
-未发现记忆库时，该栏显示一行说明，不隐藏。*When no memory store is found, the group shows an explanatory line instead of hiding.*
+*Both figures are illustrative and the data is not measured. When no memory library is found,
+the group shows an explanatory line instead of hiding.*
 
 ### 1.3 栏目与数据来源 · *Groups and Data Sources*
 
@@ -162,14 +174,14 @@ so the module is imported again.
 
 「打开」不新建端点，使用 DSH 现有的 Session Remote，路径由 Host 侧复核。
 
-- *No files are written, no subprocess is started, no outbound request is made.*
-- *One HTTP endpoint is exposed: `GET /dsh-mounts/api`.*
-- *It accepts only a loopback `Host` header (`127.0.0.1`, `localhost`, `[::1]`) and
-  returns 403 otherwise, which blocks DNS rebinding.*
-- *It accepts only GET and HEAD and returns 405 otherwise; responses carry `Cache-Control: no-store`.*
-- *It does not accept a `cwd` parameter.*
-- *It returns no file contents: memory libraries are only `stat`-ed and skills contribute the
-  frontmatter description.*
+- No files are written, no subprocess is started, no outbound request is made.
+- One HTTP endpoint is exposed: `GET /dsh-mounts/api`.
+- It accepts only a loopback `Host` header (`127.0.0.1`, `localhost`, `[::1]`) and returns 403
+  otherwise, which blocks DNS rebinding.
+- It accepts only GET and HEAD and returns 405 otherwise; responses carry `Cache-Control: no-store`.
+- It does not accept a `cwd` parameter.
+- It returns no file contents: memory libraries are only `stat`-ed and skills contribute the
+  frontmatter description.
 
 The "Open" action creates no endpoint; it uses DSH's existing Session Remote and the path is
 re-validated on the Host side.
@@ -189,7 +201,6 @@ re-validated on the Host side.
 | 不标示当前会话使用的预设 | 只列出已定义的预设，不判断哪一个正在生效 |
 | 不列 bundle 内置技能 | 内置技能分散在各 bundle 内，无法统一枚举；只显示文件系统上的技能 |
 | 工作区技能会列出所有工作区的 | 扫描范围是工作区注册表，不是当前会话；别的工作区的技能当前会话可能用不到 |
-| Workspace skills cover every workspace | The scope is the workspace registry, not the current session; another workspace's skills may be unusable here |
 | 不自动读取 customSkillDirs | 该配置属于另一个插件 |
 | 没有设置界面 | DSH 配置无法写入 include 插入的行；记忆库只从工作区 memory/ 目录发现 |
 | 记忆库块同时列规则文件 | 二者都按工作区归属，但只有规则文件会被注入 |
@@ -205,6 +216,7 @@ re-validated on the Host side.
 | The workspace is the most recently updated one | It may not be the workspace of the current session |
 | The preset in use by a session is not marked | Only defined presets are listed; which one is active is not determined |
 | Bundle-embedded skills are not listed | They are spread across bundles and cannot be enumerated uniformly; only skills on the filesystem are shown |
+| Workspace skills cover every workspace | The scope is the workspace registry, not the current session; another workspace's skills may be unusable here |
 | `customSkillDirs` is not read automatically | That setting belongs to another plugin |
 | No settings UI | DSH settings cannot write a row inserted by include; memory libraries come only from workspace memory/ directories |
 | The memory group also lists instruction files | Both are grouped by workspace, but only instruction files are injected |
@@ -214,13 +226,7 @@ re-validated on the Host side.
 
 ## 6. 开发 · *Development*
 
-    dsh-mounts/
-      package.json       包清单、dsh.bundle、dsh.client
-      cordis.patch.yml   单条 insert：mounts-panel
-      index.js           Host 侧：只读扫描与 GET /dsh-mounts/api
-      client.js          Web 侧：侧栏一级面板与 main keyed 槽
-      locale/{zh,en}.json
-      icon.svg
+文件结构见 §7。
 
 读盘文本先做 `\r\n?` 到 `\n` 的规范化。CRLF 的 `SKILL.md` 会使 frontmatter 解析静默失败，
 description 退化为空字符串。
@@ -232,6 +238,25 @@ frontmatter parsing fail silently and the description degrade to an empty string
 
 To inject configuration, edit the `config` of this bundle's own `cordis.patch.yml`
 (local installs only; not recommended for commits).
+
+---
+
+## 7. 文件结构 · *File Structure*
+
+```
+dsh-mounts/
+├── package.json          # 包清单、dsh.bundle 与 dsh.client · Package manifest
+├── cordis.patch.yml      # 单条 insert：mounts-panel · Bundle patch
+├── index.js              # Host 半：只读扫描与 GET /dsh-mounts/api · Host half
+├── client.js             # Web 半：侧栏一级面板与 main keyed 槽 · Client half
+├── locale/               # 面板标题与描述的中英文案 · Panel title and description
+│   ├── zh.json
+│   └── en.json
+├── icon.svg              # 插件图标 · Plugin icon
+├── README.md             # 本文件 · This file
+├── CHANGELOG.md          # 更新日志 · Changelog
+└── LICENSE               # MIT · MIT
+```
 
 ---
 
@@ -275,19 +300,19 @@ To inject configuration, edit the `config` of this bundle's own `cordis.patch.ym
 **为何不提供正文预览。**
 正文预览需要在端点中开放文件读取，而该端点仅以 Host 头作准入控制，不做会话鉴权。故仅提供「打开」。
 
-***The sidebar shows no "挂载清单" after installation.*** *Confirm that `install_bundle` returned
+The sidebar shows no "挂载清单" after installation. Confirm that `install_bundle` returned
 `application: applied`. If it is applied but still invisible, perform a hard refresh
-(Ctrl+Shift+R); if that fails, restart DSH.*
+(Ctrl+Shift+R); if that fails, restart DSH.
 
-***The interface does not change after a code edit.*** *See §3.2.*
+The interface does not change after a code edit. See §3.2.
 
-***The displayed workspace is not the one of the current session.*** *The panel takes the most recently
-updated workspace in the registry and has no session-level binding. See §5.*
+The displayed workspace is not the one of the current session. The panel takes the most recently
+updated workspace in the registry and has no session-level binding. See §5.
 
-***"Open" appears as "Copy path".*** *The page cannot reach the Session Remote, which is the expected
-degradation. Clicking places the full path on the clipboard.*
+"Open" appears as "Copy path". The page cannot reach the Session Remote, which is the expected
+degradation. Clicking places the full path on the clipboard.
 
-***Why is there no inline preview of file contents?*** *A preview would require opening file reads on the
+Why is there no inline preview of file contents? A preview would require opening file reads on the
 endpoint, which is admitted only by the Host header and carries no session authentication. The "Open"
 action is provided instead.*
 
@@ -302,4 +327,4 @@ MIT，见 [LICENSE](LICENSE)。*MIT, see [LICENSE](LICENSE).*
 ## 反馈 · *Feedback*
 
 问题请提交 issue，附 DSH 版本与复现步骤。
-*Please open an issue, including the DSH version and reproduction steps.*
+Please open an issue, including the DSH version and reproduction steps.
