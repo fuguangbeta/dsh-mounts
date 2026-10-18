@@ -1,6 +1,6 @@
 {
   "name": "dsh-mounts",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
   "description": "Read-only DSH sidebar panel: the global instructions, each workspace's memory and rules, skills, MCP servers, and Agent Presets.",
   "type": "module",
