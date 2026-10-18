@@ -23,8 +23,9 @@ DSH 不读取该目录；DSH 自动注入的内容为各工作区的 `AGENTS.md`
 查看正文使用每行的「打开」，交由系统默认程序处理；该操作使用 DSH 内置的 Session Remote，
 不可用时降级为「复制路径」。面板不修改任何文件，也不提供任何设置项。
 
-如果你只是偶尔想确认一次配置，DSH 自带的 `mounts` 技能同样能给出答案。这个面板的价值在于
-它常驻侧栏、随时可见，不必每次重新问一遍；配置频繁变动时，这一点有些用处。
+如果你只是偶尔想确认一次配置，直接读 profile 的 `cordis.patch.yml` 与各工作区的 `AGENTS.md`
+也能得到同样的答案。这个面板的价值在于它常驻侧栏、随时可见，不必每次重新查一遍；配置频繁变动时，
+这一点有些用处。
 
 This is a read-only sidebar panel for DeepSeek Harness. It presents the mounts of the current profile
 in five groups on one page. It registers no tools, adds nothing to the context, writes no files, and
@@ -39,10 +40,10 @@ only `stat`-ed and skills contribute the description line from their frontmatter
 is delegated to the system default application through DSH's Session Remote, with a copy-path fallback.
 The panel does not modify any file and offers no settings.
 
-If you only want to check the configuration occasionally, DSH's own `mounts` skill answers the
-same question. The value of this panel is that it sits in the sidebar and stays current, so the
-question does not have to be asked again each time; when the configuration changes often, that is
-worth something.
+If you only want to check the configuration occasionally, reading the profile's `cordis.patch.yml`
+and each workspace's `AGENTS.md` gives the same answer. The value of this panel is that it sits in
+the sidebar and stays current, so nothing has to be looked up again each time; when the configuration
+changes often, that is worth something.
 
 ---
 
