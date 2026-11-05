@@ -1,6 +1,6 @@
 {
   "meta": {
     "title": "Mounts",
-    "description": "Read-only view of the global instructions, each workspace's memory and rules, skills, MCP servers, and Agent Presets."
+    "description": "Read-only Global/Workspace view of a project brief, memory, skills, and MCP servers, with status dots for effective mounts; the only write is a workspace handoff file."
   }
 }

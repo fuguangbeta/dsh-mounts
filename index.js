@@ -8,9 +8,10 @@
  * pure Node `fs` reading; the only thing this plugin serves is its own JSON
  * snapshot to its own panel.
  *
- * It never writes a file, never spawns a process, and never reaches a network.
+ * It never spawns a process and never reaches a network; the only write is an
+ * explicit handoff save to `<workspace>/.dsh-mounts/handoff.md`.
  */
-import { readdirSync, readFileSync, realpathSync, statSync } from 'node:fs'
+import { mkdirSync, readdirSync, readFileSync, realpathSync, renameSync, statSync, unlinkSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { homedir } from 'node:os'
 import path from 'node:path'
@@ -54,7 +55,6 @@ const z = await loadSchemastery()
 // 愿意直接改本 bundle 的 cordis.patch.yml 的安装者仍能注入配置。
 export const Config = z
   ? z.object({
-      memoryRoots: z.array(z.string()).default([]),
       extraSkillRoots: z.array(z.string()).default([]),
       extraPatchFiles: z.array(z.string()).default([]),
     })
@@ -66,6 +66,7 @@ export const inject = ['webServer']
 export const name = 'dsh-mounts'
 
 const ROUTE = '/dsh-mounts/api'
+const HANDOFF_ROUTE = '/dsh-mounts/handoff'
 const MCP_PACKAGE = '@deepseek-ai/dsh-mcp-client'
 const PRESET_PACKAGE = '@deepseek-ai/dsh-agent-preset'
 
@@ -408,6 +409,442 @@ function mergeMemory(stores) {
   return result
 }
 
+/* ---------- project context: team, handoff, engines, brief ---------- */
+
+function readJson(file) {
+  const text = readText(file)
+  if (text === null) return null
+  try {
+    return JSON.parse(text)
+  } catch {
+    return null
+  }
+}
+
+/** Tools this plugin can share context with; detection is by profile package name. */
+const KNOWN_ENGINES = [
+  { id: 'mnemon', label: 'dsh-mnemon', packages: ['dsh-mnemon'] },
+  { id: 'mneme', label: 'dsh-mneme', packages: ['@modusensus/dsh-mneme'] },
+  { id: 'engramory', label: 'engramory', packages: ['dsh-engramory'] },
+  { id: 'agent-teams', label: 'dsh-agent-teams', packages: ['@nanmicoder/dsh-agent-teams', 'dsh-agent-teams'] },
+  { id: 'context-doctor', label: 'Context Doctor', packages: ['dsh-context-doctor'] },
+]
+
+function installedEngines(profileDir) {
+  const pkg = readJson(path.join(profileDir, 'package.json')) || {}
+  const dependencies = pkg.dependencies && typeof pkg.dependencies === 'object' ? pkg.dependencies : {}
+  const profile = pkg.dsh && pkg.dsh.profile
+  const bundles = profile && Array.isArray(profile.bundles) ? profile.bundles : []
+  const installed = new Set([...Object.keys(dependencies), ...bundles.map(String)])
+  return KNOWN_ENGINES.map((engine) => ({
+    id: engine.id,
+    label: engine.label,
+    installed: engine.packages.some((name) => installed.has(name)),
+  }))
+}
+
+/** Read a `.agent-teams/team.json` if the collaboration plugin wrote one. */
+function readTeamState(workspacePath) {
+  const dir = path.join(workspacePath, '.agent-teams')
+  if (!isDirectory(dir)) return null
+  const data = readJson(path.join(dir, 'team.json'))
+  if (!data) return { present: true, unknown: true, members: [], tasks: [] }
+  const members = Array.isArray(data.members)
+    ? data.members.slice(0, 20).map((member) => ({
+        name: String((member && (member.name || member.id)) || '?'),
+        role: String((member && member.role) || ''),
+        status: String((member && (member.status || member.state)) || ''),
+      }))
+    : []
+  const tasks = Array.isArray(data.tasks)
+    ? data.tasks.slice(0, 50).map((task) => ({
+        subject: String((task && (task.subject || task.title || task.id)) || '?'),
+        status: String((task && task.status) || ''),
+        assignee: String((task && (task.assignee || task.owner)) || ''),
+      }))
+    : []
+  return { present: true, status: String(data.status || ''), members, tasks }
+}
+
+/** A small, explicit handoff note lives at `<workspace>/.dsh-mounts/handoff.md`. */
+function readHandoff(workspacePath) {
+  for (const relative of [path.join('.dsh-mounts', 'handoff.md'), path.join('.dsh', 'handoff.md')]) {
+    const file = path.join(workspacePath, relative)
+    if (!isFile(file)) continue
+    const text = readText(file) || ''
+    const preview = text
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .slice(0, 2)
+      .join(' / ')
+    return {
+      path: file,
+      bytes: fileSize(file),
+      preview: capText(preview, 160),
+      text: text.length > 20000 ? text.slice(0, 20000) : text,
+    }
+  }
+  return null
+}
+
+/** A bounded, agent-readable summary of what this workspace actually mounts. */
+function buildBrief(entry, context) {
+  const lines = []
+  lines.push('# 项目上下文简报')
+  lines.push('')
+  lines.push('- 工作区：' + entry.name)
+  lines.push('- 路径：' + entry.path)
+  lines.push('- 生成：' + new Date().toISOString().slice(0, 16).replace('T', ' '))
+  lines.push('')
+  lines.push('## 全局规则')
+  lines.push(
+    context.globalRules && context.globalRules.exists
+      ? '- `~/.dsh/AGENTS.md`：' + (context.globalRules.sections || []).length + ' 节，' + context.globalRules.bytes + ' 字节'
+      : '- 无',
+  )
+  lines.push('')
+  lines.push('## 项目规则（自动注入）')
+  if (entry.rules.length) {
+    for (const rule of entry.rules) {
+      lines.push('- ' + rule.file + '：' + (rule.sections || []).length + ' 节，' + rule.bytes + ' 字节')
+    }
+  } else {
+    lines.push('- 无')
+  }
+  lines.push('')
+  lines.push('## 记忆库（Markdown，非自动注入）')
+  if (entry.memory.count) {
+    lines.push(
+      '- 共 ' + entry.memory.count + ' 个文件' + (entry.memory.folded ? '（合并同名 ' + entry.memory.folded + ' 个）' : '') + '：',
+    )
+    for (const file of entry.memory.files.slice(0, 12)) {
+      lines.push('  - ' + file.name + '（' + file.bytes + ' B，' + String(file.mtime).slice(0, 10) + '）')
+    }
+    if (entry.memory.files.length > 12) lines.push('  - …其余 ' + (entry.memory.files.length - 12) + ' 个')
+  } else {
+    lines.push('- 无')
+  }
+  lines.push('')
+  const workspaceSkills = context.skills.filter(
+    (skill) => skill.scope === 'workspace' && (skill.workspacePath === entry.path || skill.workspace === entry.name),
+  )
+  const globalSkills = context.skills.filter((skill) => skill.scope === 'global')
+  lines.push('## 技能')
+  lines.push(
+    '- 本项目：' + workspaceSkills.length + ' 个' + (workspaceSkills.length ? '：' + workspaceSkills.slice(0, 8).map((skill) => skill.name).join('、') : ''),
+  )
+  lines.push('- 全局：' + globalSkills.length + ' 个')
+  lines.push('')
+  lines.push('## MCP 服务器')
+  if (context.mcp.length) {
+    for (const server of context.mcp) {
+      lines.push('- ' + server.server + '（' + server.transport + '）' + (server.presetId ? ' · 预设 ' + server.presetId : ''))
+    }
+  } else {
+    lines.push('- 无')
+  }
+  if (entry.projectMcp && entry.projectMcp.length) {
+    lines.push('')
+    lines.push('## 本项目 MCP')
+    for (const server of entry.projectMcp) {
+      lines.push(
+        '- ' +
+          server.server +
+          '（' +
+          server.transport +
+          '）' +
+          (server.target ? ' · ' + server.target : '') +
+          (server.sourceKind === 'external' ? ' · 外部格式（DSH 不读取）' : ''),
+      )
+    }
+  }
+  lines.push('')
+  lines.push('## Agent 预设')
+  lines.push('- 默认：' + (context.registry.default || '?') + '；选中：' + (context.registry.selectedDefault || '?'))
+  lines.push('- 自定义：' + (context.presets.length ? context.presets.map((preset) => preset.id).join('、') : '无'))
+  lines.push('- 内置：' + BUILTIN_PRESETS.join('、'))
+  if (entry.team) {
+    lines.push('')
+    lines.push('## 团队（dsh-agent-teams）')
+    if (entry.team.unknown) {
+      lines.push('- 检测到 `.agent-teams/`，但未找到可解析的 `team.json`')
+    } else {
+      lines.push('- 成员：' + entry.team.members.length + '；任务：' + entry.team.tasks.length)
+      for (const member of entry.team.members.slice(0, 8)) {
+        lines.push('  - ' + member.name + (member.role ? '（' + member.role + '）' : '') + (member.status ? ' · ' + member.status : ''))
+      }
+    }
+  }
+  lines.push('')
+  lines.push('## 最近交接')
+  lines.push(entry.handoff ? '- ' + entry.handoff.path + '：' + entry.handoff.preview : '- 无')
+  lines.push('')
+  lines.push('## 已接入的记忆 / 协作引擎')
+  for (const engine of context.engines) {
+    lines.push('- ' + engine.label + '：' + (engine.installed ? '已安装' : '未安装'))
+  }
+  return lines.join('\n')
+}
+
+/* ---------- effective view (what the current agent actually sees) ---------- */
+
+let effectiveCache = null
+
+function sessionOf(agent, sessions) {
+  try {
+    if (agent && agent.session && agent.session.header) return agent.session
+    if (agent && agent.id && sessions && typeof sessions.get === 'function') return sessions.get(agent.id)
+  } catch {
+    /* no session */
+  }
+  return null
+}
+
+function agentRank(agent, sessions) {
+  const session = sessionOf(agent, sessions)
+  if (!session) return 0
+  try {
+    const seq = Number(session.seq || 0)
+    const event = seq > 0 ? session.eventAt(seq - 1) : null
+    if (event && typeof event.time === 'number') return event.time
+    return Number((session.header && session.header.createdAt) || 0)
+  } catch {
+    return 0
+  }
+}
+
+/** The live agent whose session runs inside this workspace, most recent first. */
+function currentAgentFor(ctx, workspacePath) {
+  const root = String(workspacePath || '')
+  if (!root) return null
+  try {
+    const agents = ctx.get('agents')
+    const list = agents && typeof agents.list === 'function' ? agents.list() : []
+    const sessions = ctx.get('sessions')
+    const usable = list.filter((agent) => {
+      const session = sessionOf(agent, sessions)
+      if (!session || !session.header) return false
+      const cwd = session.header.cwd
+      return (
+        typeof cwd === 'string' &&
+        session.header.origin !== 'subagent' &&
+        isDirectory(cwd) &&
+        (cwd === root || cwd.startsWith(root + path.sep))
+      )
+    })
+    usable.sort((a, b) => agentRank(b, sessions) - agentRank(a, sessions))
+    return usable[0] || null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Ask the Host's own registries what the agent sees: effective skills (including
+ * bundled ones) and the visible tool schemas. Read-only and bounded; failures
+ * degrade to no effective view rather than breaking the inventory.
+ */
+async function effectiveView(ctx, cwd, agent, fileSkills) {
+  const key = (agent && agent.id ? 'agent:' + String(agent.id) : 'catalog') + '|' + cwd
+  if (effectiveCache && effectiveCache.key === key && Date.now() - effectiveCache.at < 15000) {
+    return effectiveCache.value
+  }
+  let skillsService = null
+  let toolsService = null
+  try {
+    skillsService = ctx.get('skills')
+  } catch {
+    skillsService = null
+  }
+  try {
+    toolsService = ctx.get('tools')
+  } catch {
+    toolsService = null
+  }
+  if (!skillsService && !toolsService) return null
+
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), 2500)
+  let summaries = []
+  try {
+    if (skillsService && typeof skillsService.list === 'function') {
+      summaries = await skillsService.list({
+        cwd,
+        ...(agent ? { scope: agent } : {}),
+        signal: controller.signal,
+      })
+    }
+  } catch {
+    summaries = []
+  } finally {
+    clearTimeout(timer)
+  }
+
+  const skills = (Array.isArray(summaries) ? summaries : []).map((skill) => ({
+    name: String((skill && skill.name) || ''),
+    source: String((skill && skill.source) || ''),
+    provider: String((skill && skill.provider) || ''),
+    description: capText(skill && skill.description, 200),
+    modelInvocable: Boolean(skill && skill.invocation && skill.invocation.modelInvocable),
+    userInvocable: Boolean(skill && skill.invocation && skill.invocation.userInvocable),
+    path: typeof (skill && skill.path) === 'string' ? skill.path : '',
+  }))
+
+  let schemas = []
+  try {
+    if (toolsService && typeof toolsService.schemas === 'function') schemas = toolsService.schemas(agent || undefined)
+  } catch {
+    schemas = []
+  }
+  const servers = []
+  let mcpCount = 0
+  for (const schema of Array.isArray(schemas) ? schemas : []) {
+    const name = String((schema && schema.name) || '')
+    const match = /^mcp__(.+?)__(.+)$/.exec(name)
+    if (!match) continue
+    mcpCount += 1
+    const server = match[1]
+    const hit = servers.find((entry) => entry.server === server)
+    if (hit) hit.count += 1
+    else servers.push({ server, count: 1 })
+  }
+  servers.sort((a, b) => b.count - a.count || a.server.localeCompare(b.server))
+
+  const seen = new Set(skills.map((skill) => skill.name))
+  const shadowed = Array.isArray(fileSkills)
+    ? [...new Set(fileSkills.map((skill) => skill.name).filter((name) => name && !seen.has(name)))].slice(0, 20)
+    : []
+
+  const sessions = (() => {
+    try {
+      return ctx.get('sessions')
+    } catch {
+      return null
+    }
+  })()
+  const session = sessionOf(agent, sessions)
+  const value = {
+    available: skills.length > 0 || schemas.length > 0,
+    scope: agent ? 'session' : 'catalog',
+    agent: {
+      id: agent && agent.id ? String(agent.id) : '',
+      preset: session && session.header && session.header.agentPreset ? String(session.header.agentPreset) : '',
+      cwd,
+    },
+    skills,
+    shadowed,
+    tools: {
+      total: Array.isArray(schemas) ? schemas.length : 0,
+      mcp: mcpCount,
+      native: (Array.isArray(schemas) ? schemas.length : 0) - mcpCount,
+      servers,
+    },
+    generatedAt: new Date().toISOString(),
+  }
+  effectiveCache = { key, at: Date.now(), value }
+  return value
+}
+
+function effectiveSection(effective, scopeLabel) {
+  if (!effective || !effective.available) return ''
+  const sources = {}
+  for (const skill of effective.skills) sources[skill.source] = (sources[skill.source] || 0) + 1
+  const builtin = sources.bundled || 0
+  const project = (sources['project-dsh'] || 0) + (sources['project-agents'] || 0)
+  const user =
+    (sources['user-dsh'] || 0) + (sources['user-agents'] || 0) + (sources.custom || 0) + (sources.runtime || 0)
+  const lines = ['', '## 实际生效（' + (scopeLabel || 'Host 视角') + '）']
+  if (effective.agent.preset) lines.push('- Agent 预设：' + effective.agent.preset)
+  lines.push(
+    '- 技能：' +
+      effective.skills.length +
+      ' 个（内置 ' +
+      builtin +
+      '，项目 ' +
+      project +
+      '，用户 ' +
+      user +
+      (effective.shadowed.length ? '；未生效/被遮蔽 ' + effective.shadowed.length : '') +
+      '）',
+  )
+  lines.push(
+    '- 工具：' +
+      effective.tools.total +
+      ' 个（MCP ' +
+      effective.tools.mcp +
+      (effective.tools.servers.length
+        ? '：' + effective.tools.servers.slice(0, 6).map((server) => server.server + ' ' + server.count).join('、')
+        : '') +
+      '）',
+  )
+  return '\n' + lines.join('\n')
+}
+
+/** Project-level MCP: `<workspace>/.dsh/mcp.json` (or `.mcp.json`). */
+function readProjectMcp(workspacePath) {
+  const dshFile = path.join(workspacePath, '.dsh', 'mcp.json')
+  const externalFile = path.join(workspacePath, '.mcp.json')
+  for (const file of [dshFile, externalFile]) {
+    const data = readJson(file)
+    if (!data) continue
+    const raw = data.mcpServers || data.servers || data
+    const sourceKind = file === dshFile ? 'dsh' : 'external'
+    const rows = []
+    const push = (name, item) => {
+      if (!item || typeof item !== 'object') return
+      const env = item.env && typeof item.env === 'object' ? Object.keys(item.env) : []
+      const command = Array.isArray(item.args) ? [item.command, ...item.args].filter(Boolean).join(' ') : item.command
+      rows.push({
+        row: 'project:' + name,
+        server: String(name),
+        transport: String(item.transport || (item.url ? 'http' : 'stdio')),
+        target: String(item.url || command || ''),
+        env,
+        presetId: '',
+        source: file,
+        sourceKind,
+      })
+    }
+    if (Array.isArray(raw)) {
+      for (const item of raw) push((item && (item.name || item.serverName)) || 'server', item)
+    } else if (raw && typeof raw === 'object') {
+      for (const [name, item] of Object.entries(raw)) push(name, item)
+    }
+    return rows.slice(0, 50)
+  }
+  return []
+}
+
+/** Known global memory libraries outside workspaces. */
+function readGlobalMemory(dshHome) {
+  const dirs = [
+    path.join(dshHome, 'memory'),
+    path.join(dshHome, '.engramory-memory'),
+    path.join(dshHome, 'memory-bank'),
+  ]
+  const stores = []
+  for (const dir of dirs) {
+    if (!isDirectory(dir)) continue
+    const files = markdownFiles(dir)
+    if (files.length) stores.push({ dir, files })
+  }
+  const files = []
+  for (const store of stores) {
+    for (const file of store.files) {
+      files.push({ ...file, dir: store.dir, realPath: realOf(path.join(store.dir, file.name)) })
+    }
+  }
+  files.sort((a, b) => a.name.localeCompare(b.name))
+  const latest = files.reduce((newest, file) => (file.mtime > newest ? file.mtime : newest), '')
+  return {
+    dirs: stores.map((store) => store.dir),
+    count: files.length,
+    latest,
+    files: files.slice(0, 200),
+  }
+}
+
 function workspaceEntries(workspaces) {
   const entries = []
   for (const workspacePath of workspaces || []) {
@@ -439,6 +876,9 @@ function workspaceEntries(workspaces) {
       path: workspacePath,
       rules,
       memory,
+      team: readTeamState(workspacePath),
+      handoff: readHandoff(workspacePath),
+      projectMcp: readProjectMcp(workspacePath),
     })
   }
   // Workspaces with content first; otherwise alphabetical.
@@ -451,10 +891,12 @@ function workspaceEntries(workspaces) {
   return entries
 }
 
-function scan({ dshHome, profileName, profileDir, cwd, memoryRoots, workspaces, patchFiles, patchPath, extraSkillRoots, extraPatchFiles, profileInferred }) {
+function scan({ dshHome, profileName, profileDir, cwd, briefPath, workspaces, patchFiles, patchPath, extraSkillRoots, extraPatchFiles, profileInferred }) {
   const patch = patchPath || path.join(profileDir, 'cordis.patch.yml')
   const configWarnings = []
   const project = locateProject(cwd)
+  const engines = installedEngines(profileDir)
+  const globalMemory = readGlobalMemory(dshHome)
   const globalFile = path.join(dshHome, 'AGENTS.md')
   const globalText = readText(globalFile)
 
@@ -521,6 +963,17 @@ function scan({ dshHome, profileName, profileDir, cwd, memoryRoots, workspaces, 
   const warnings = []
   if (!mcp.length) warnings.push('未识别到 dsh-mcp-client 行，可能是 DSH 版本变更')
 
+  const globalRules = {
+    path: globalFile,
+    exists: globalText !== null,
+    bytes: fileSize(globalFile),
+    sections: globalText ? headings(globalText).slice(0, 12) : [],
+  }
+  const entries = workspaceEntries(workspaces)
+  const briefContext = { skills, mcp, presets, registry, engines, globalRules }
+  for (const entry of entries) entry.brief = buildBrief(entry, briefContext)
+  const briefEntry = entries.find((entry) => entry.path === (briefPath || cwd)) || entries[0] || null
+
   return {
     generatedAt: new Date().toISOString(),
     profile: {
@@ -535,13 +988,12 @@ function scan({ dshHome, profileName, profileDir, cwd, memoryRoots, workspaces, 
       projectRoot: project.root,
       hasGit: project.hasGit,
     },
-    globalRules: {
-      path: globalFile,
-      exists: globalText !== null,
-      bytes: fileSize(globalFile),
-      sections: globalText ? headings(globalText).slice(0, 12) : [],
-    },
-    workspaces: workspaceEntries(workspaces),
+    globalRules,
+    workspaces: entries,
+    engines,
+    globalMemory,
+    brief: briefEntry ? briefEntry.brief : '',
+    briefWorkspace: briefEntry ? briefEntry.name : '',
     skillRoots,
     skills,
     mcp,
@@ -551,7 +1003,6 @@ function scan({ dshHome, profileName, profileDir, cwd, memoryRoots, workspaces, 
     warnings,
     configWarnings,
     config: {
-      memoryRoots: memoryRoots || [],
       extraSkillRoots: extraSkillRoots || [],
       extraPatchFiles: extraPatchFiles || [],
     },
@@ -559,7 +1010,6 @@ function scan({ dshHome, profileName, profileDir, cwd, memoryRoots, workspaces, 
 }
 
 export function apply(ctx, config) {
-  const memoryRoots = config && Array.isArray(config.memoryRoots) ? config.memoryRoots : []
   const extraSkillRoots = config && Array.isArray(config.extraSkillRoots) ? config.extraSkillRoots : []
   const extraPatchFiles = config && Array.isArray(config.extraPatchFiles) ? config.extraPatchFiles : []
   const home = homedir()
@@ -580,6 +1030,34 @@ export function apply(ctx, config) {
   const patchFiles = [globalPatch, profilePatch, ...extraPatchFiles.map(expandHome)].filter((file) => isFile(file))
 
   const defaultCwd = () => {
+    // Prefer the session with the most recent event (the one the user is
+    // looking at); the registry alone often points at another workspace.
+    try {
+      const sessions = ctx.get('sessions')
+      const list = sessions && typeof sessions.list === 'function' ? sessions.list() : []
+      const candidates = list
+        .map((session) => ({ session, header: session && session.header }))
+        .filter(
+          ({ header }) =>
+            header &&
+            typeof header.cwd === 'string' &&
+            header.origin !== 'subagent' &&
+            isDirectory(header.cwd),
+        )
+      const lastEventTime = ({ session, header }) => {
+        try {
+          const seq = Number(session.seq || 0)
+          const event = seq > 0 ? session.eventAt(seq - 1) : null
+          return event && typeof event.time === 'number' ? event.time : Number(header.createdAt || 0)
+        } catch {
+          return Number(header.createdAt || 0)
+        }
+      }
+      candidates.sort((a, b) => lastEventTime(b) - lastEventTime(a))
+      if (candidates.length) return candidates[0].header.cwd
+    } catch {
+      /* no session store in this composition */
+    }
     try {
       const registry = ctx.get('workspaceRegistry')
       const list = registry && typeof registry.list === 'function' ? registry.list() : []
@@ -610,7 +1088,127 @@ export function apply(ctx, config) {
     }
   }
 
-  const handler = (req, res) => {
+  const resolveWorkspace = (value) => {
+    if (!value) return ''
+    if (path.isAbsolute(value) && isDirectory(value)) return path.resolve(value)
+    return (
+      workspacePaths().find(
+        (workspacePath) => path.basename(workspacePath).toLowerCase() === String(value).toLowerCase(),
+      ) || ''
+    )
+  }
+
+  const buildSnapshot = async (cwd, agent, workspacePath) => {
+    const workspaces = workspacePaths()
+    // A session may run in a subdirectory: attribute it to the registered
+    // workspace that contains it; an unregistered cwd is inspected as its own.
+    let briefPath = workspacePath || cwd
+    if (workspacePath) {
+      if (!workspaces.includes(workspacePath)) workspaces.push(workspacePath)
+    } else {
+      const owner = workspaces.find(
+        (workspacePath) => cwd === workspacePath || cwd.startsWith(workspacePath.endsWith(path.sep) ? workspacePath : workspacePath + path.sep),
+      )
+      if (owner) briefPath = owner
+      else if (cwd && !workspaces.includes(cwd)) workspaces.push(cwd)
+    }
+    const snapshot = scan({
+      dshHome,
+      profileName,
+      profileDir,
+      cwd,
+      briefPath,
+      workspaces,
+      patchFiles,
+      patchPath: profilePatch,
+      extraSkillRoots,
+      extraPatchFiles,
+      profileInferred,
+    })
+    try {
+      const effectiveAgent = agent || currentAgentFor(ctx, briefPath)
+      const effective = await effectiveView(ctx, briefPath, effectiveAgent, snapshot.skills)
+      if (effective) {
+        snapshot.effective = effective
+        const label = agent ? '当前会话' : effective.scope === 'catalog' ? '目录级' : '会话'
+        const extra = effectiveSection(effective, label)
+        if (extra) {
+          snapshot.brief += extra
+          const entry = snapshot.workspaces.find((item) => item.name === snapshot.briefWorkspace)
+          if (entry) entry.brief += extra
+        }
+      }
+    } catch (error) {
+      snapshot.effectiveError = String((error && error.message) || error)
+    }
+    return snapshot
+  }
+
+  const readBody = (req, limit) =>
+    new Promise((resolve, reject) => {
+      let size = 0
+      const chunks = []
+      req.on('data', (chunk) => {
+        size += chunk.length
+        if (size > limit) {
+          reject(new Error('body too large'))
+          req.destroy()
+          return
+        }
+        chunks.push(chunk)
+      })
+      req.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')))
+      req.on('error', reject)
+    })
+
+  const handoffHandler = async (req, res) => {
+    const send = (status, payload) => {
+      res.statusCode = status
+      res.setHeader('content-type', 'application/json; charset=utf-8')
+      res.setHeader('cache-control', 'no-store')
+      res.end(JSON.stringify(payload))
+    }
+    try {
+      const host = String(req.headers.host || '')
+      if (!/^(127\.0\.0\.1|localhost|\[::1\])(:\d+)?$/i.test(host)) return send(403, { ok: false, error: 'forbidden' })
+      if (req.method !== 'POST') {
+        res.setHeader('allow', 'POST')
+        return send(405, { ok: false, error: 'method not allowed' })
+      }
+      const raw = await readBody(req, 24000)
+      let body = {}
+      try {
+        body = JSON.parse(raw || '{}')
+      } catch {
+        return send(400, { ok: false, error: 'invalid json' })
+      }
+      const text = typeof body.text === 'string' ? body.text : ''
+      if (text.length > 20000) return send(413, { ok: false, error: 'handoff too large' })
+      const workspace = resolveWorkspace(body.workspace)
+      if (!workspace) return send(400, { ok: false, error: 'workspace not found' })
+      const target = path.join(workspace, '.dsh-mounts', 'handoff.md')
+      const root = path.resolve(workspace) + path.sep
+      if (!path.resolve(target).startsWith(root)) return send(400, { ok: false, error: 'invalid workspace' })
+      mkdirSync(path.dirname(target), { recursive: true })
+      const temp = target + '.tmp-' + process.pid
+      try {
+        writeFileSync(temp, text, 'utf8')
+        renameSync(temp, target)
+      } catch (error) {
+        try {
+          unlinkSync(temp)
+        } catch {
+          /* already gone */
+        }
+        throw error
+      }
+      return send(200, { ok: true, handoff: readHandoff(workspace) })
+    } catch (error) {
+      return send(500, { ok: false, error: String((error && error.message) || error) })
+    }
+  }
+
+  const handler = async (req, res) => {
     try {
       // Loopback only: a rebound DNS name reaches this port with its own Host
       // header, so a non-loopback Host can never read the inventory.
@@ -627,21 +1225,9 @@ export function apply(ctx, config) {
         return
       }
       const cwd = defaultCwd()
-      const body = JSON.stringify(
-        scan({
-          dshHome,
-          profileName,
-          profileDir,
-          cwd,
-          memoryRoots,
-          workspaces: workspacePaths(),
-          patchFiles,
-          patchPath: profilePatch,
-          extraSkillRoots,
-          extraPatchFiles,
-          profileInferred,
-        }),
-      )
+      const requestUrl = new URL(req.url || '/', 'http://127.0.0.1')
+      const selectedWorkspace = resolveWorkspace(requestUrl.searchParams.get('workspace'))
+      const body = JSON.stringify(await buildSnapshot(cwd, null, selectedWorkspace))
       res.statusCode = 200
       res.setHeader('content-type', 'application/json; charset=utf-8')
       res.setHeader('cache-control', 'no-store')
@@ -653,5 +1239,82 @@ export function apply(ctx, config) {
     }
   }
 
-  ctx.effect(() => ctx.webServer.register({ kind: 'exact', path: ROUTE, handler }))
+  ctx.effect(() => {
+    const disposeApi = ctx.webServer.register({ kind: 'exact', path: ROUTE, handler })
+    const disposeHandoff = ctx.webServer.register({ kind: 'exact', path: HANDOFF_ROUTE, handler: handoffHandler })
+    return () => {
+      disposeApi()
+      disposeHandoff()
+    }
+  })
+
+  // One read-only tool. Without it the model never learns that a workspace has
+  // memory banks, where they live, or what this project mounts. The schema is
+  // deliberately small; there is no write path.
+  let tools = null
+  try {
+    tools = ctx.get('tools')
+  } catch {
+    tools = null
+  }
+  if (tools && typeof tools.register === 'function') {
+    ctx.effect(() => {
+      try {
+        return tools.register({
+          name: 'project_context',
+          description: '查看当前项目的挂载上下文：规则、记忆库、技能、MCP、团队与最近交接。只读。',
+          parameters: {
+            workspace: {
+              type: 'string',
+              description: '工作区名称或绝对路径；省略时使用当前会话的工作目录。',
+            },
+          },
+          output: {
+            schema: { type: 'object', additionalProperties: true },
+            render: (_args, value) => [{ type: 'text', text: String((value && value.text) || '') }],
+          },
+          async execute(args, exec) {
+            const requested = args && typeof args.workspace === 'string' ? args.workspace.trim() : ''
+            let cwd = ''
+            try {
+              cwd =
+                (exec &&
+                  exec.agent &&
+                  exec.agent.session &&
+                  exec.agent.session.header &&
+                  exec.agent.session.header.cwd) ||
+                ''
+            } catch {
+              cwd = ''
+            }
+            if (requested) {
+              if (path.isAbsolute(requested) && isDirectory(requested)) {
+                cwd = path.resolve(requested)
+              } else {
+                const hit = workspacePaths().find(
+                  (workspacePath) => path.basename(workspacePath).toLowerCase() === requested.toLowerCase(),
+                )
+                if (hit) cwd = hit
+              }
+            }
+            if (!cwd || !isDirectory(cwd)) cwd = defaultCwd()
+            let agent = exec && exec.agent
+            try {
+              const agentCwd = agent && agent.session && agent.session.header && agent.session.header.cwd
+              if (agentCwd && cwd && !(agentCwd === cwd || agentCwd.startsWith(cwd + path.sep))) agent = null
+            } catch {
+              agent = null
+            }
+            const snapshot = await buildSnapshot(cwd, agent)
+            return {
+              text: snapshot.brief || '# 项目上下文简报\n\n- 工作区：' + cwd + '\n- 未发现记忆库或规则文件。',
+              workspace: cwd,
+            }
+          },
+        })
+      } catch {
+        return () => {}
+      }
+    })
+  }
 }

@@ -3,8 +3,11 @@ node_modules/
 .DS_Store
 Thumbs.db
 
-# DSH 工作区本地配置（记忆库联接等）
+# 工作区本地配置（记忆库联接等）
 .dsh/
+
+# 面板写入的交接文件：本机状态，不进仓库
+.dsh-mounts/
 
 # 工作区项目记忆：本机事实，不进仓库
 AGENTS.local.md

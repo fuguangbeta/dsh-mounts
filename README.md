@@ -2,43 +2,46 @@
 
 [![版本](https://img.shields.io/github/v/tag/fuguangbeta/dsh-mounts?label=%E7%89%88%E6%9C%AC&color=blue)](https://github.com/fuguangbeta/dsh-mounts/tags)
 ![平台](https://img.shields.io/badge/%E5%B9%B3%E5%8F%B0-DeepSeek%20Harness-0078D4)
-![只读](https://img.shields.io/badge/%E8%AE%BF%E9%97%AE-%E4%BB%85%E5%8F%AA%E8%AF%BB-4CAF50)
+![只读为主](https://img.shields.io/badge/%E8%AE%BF%E9%97%AE-%E5%8F%AA%E8%AF%BB%E4%B8%BA%E4%B8%BB-4CAF50)
 [![许可](https://img.shields.io/github/license/fuguangbeta/dsh-mounts?label=%E8%AE%B8%E5%8F%AF)](https://github.com/fuguangbeta/dsh-mounts/blob/main/LICENSE)
 [![Star](https://img.shields.io/github/stars/fuguangbeta/dsh-mounts?label=Star&color=yellow)](https://github.com/fuguangbeta/dsh-mounts/stargazers)
 
 ## 关于本工具 · *About This Tool*
 
-dsh-mounts 是 DeepSeek Harness 的只读侧栏面板，将当前 profile 的挂载内容归为五类，同页呈现。
-面板不注册工具，不注入上下文，不写文件，不发起网络请求。安装不改变模型所见的提示词。
+dsh-mounts 是以只读为主的侧栏面板，将当前 profile 的挂载内容归为五类，同页呈现；顶部另有一份可复制的项目简报，技能与 MCP 的每一行带一个生效状态点（绿=生效，红=未生效）。唯一写入是工作区的 `.dsh-mounts/handoff.md`（显式保存交接）。
+面板只注册一个只读工具 `project_context`（模型调用时才返回简报），除交接保存外不写文件，不发起出站请求。安装本身不改变模型所见的提示词。
 
-面板的用途限于确认配置内容，不判定其是否生效：补丁中存在 MCP 行，不代表对应进程正在运行；
+面板的用途限于确认配置内容与 Host 注册表的口径，不判定进程健康：补丁中存在 MCP 行，不代表对应进程正在运行；
 技能出现在列表中，不代表本轮已加载。
 
-记忆库一栏只从各工作区内的 `memory` 目录发现（`<工作区>/memory`、`.dsh/memory`、`.agents/memory`）；
-都没有时该栏显示一行说明，不会隐藏。
-DSH 不读取该目录；DSH 自动注入的内容为各工作区的 `AGENTS.md` 与 `AGENTS.local.md`，
-归入「预规定」一栏。
+记忆库只从固定目录发现：全局 `~/.dsh/memory`、`.engramory-memory`、`memory-bank`；工作区 `<工作区>/memory`、`.dsh/memory`、`.agents/memory`。
+都没有时该子节显示一行说明，不会隐藏。
+DSH 不读取该目录；DSH 自动注入的内容为各工作区的 `AGENTS.md` 与 `AGENTS.local.md`，归入各工作区的「记忆 → 规则」。
 
-面板不读取文件内容。记忆库仅取 `stat` 元数据，技能仅取 frontmatter 中的 description。
+面板不读取记忆正文。记忆库仅取 `stat` 元数据，技能仅取 frontmatter 的 description；
+团队只读 `team.json` 的成员/任务摘要；交接读取摘要，保存时写完整文本。
 查看正文使用每行的「打开」，交由系统默认程序处理；该操作使用 DSH 内置的 Session Remote，
-不可用时降级为「复制路径」。面板不修改任何文件，也不提供任何设置项。
+不可用时降级为「复制路径」。除显式保存交接外，面板不修改文件，也不提供任何设置项。
 
 如果你只是偶尔想确认一次配置，直接读 profile 的 `cordis.patch.yml` 与各工作区的 `AGENTS.md`
 也能得到同样的答案。这个面板的价值在于它常驻侧栏、随时可见，不必每次重新查一遍；配置频繁变动时，
 这一点有些用处。
 
-This is a read-only sidebar panel for DeepSeek Harness. It presents the mounts of the current profile
-in five groups on one page. It registers no tools, adds nothing to the context, writes no files, and
-does not use the network; installing it does not change the prompt the model receives. Its purpose is
+This is a mostly read-only sidebar panel for DeepSeek Harness. It presents the mounts as a Global/Workspace tree
+on one page, with a status dot on each skill and MCP row (green = active, red = inactive). The only write is
+the workspace's `.dsh-mounts/handoff.md` (an explicit handoff save). It registers one read-only tool,
+`project_context`, which returns that brief only when the model calls it; it adds nothing to the context,
+writes no files, and does not use the network. Installing it does not change the prompt the model receives. Its purpose is
 to report what is configured, not whether it is active: an MCP row in the patch does not imply a
-running process, and a listed skill was not necessarily loaded this turn. The memory-library group
-discovers named `memory` directories inside each workspace (`<ws>/memory`, `.dsh/memory`,
-`.agents/memory`); an explanatory line is shown when none yields a library;
+running process, and a listed skill was not necessarily loaded this turn. The Memory section
+discovers fixed directories globally (`~/.dsh/memory`, `.engramory-memory`, `memory-bank`) and
+inside each workspace (`<ws>/memory`, `.dsh/memory`, `.agents/memory`); an explanatory line is shown when none yields a library;
 DSH does not read it, and what DSH injects are the `AGENTS.md` and `AGENTS.local.md` files
-of each workspace, reported in the first group. File contents are never read: the memory libraries are
-only `stat`-ed and skills contribute the description line from their frontmatter. Reading a file
+of each workspace, reported under Memory → Rules. Memory bodies are never read: libraries are
+only `stat`-ed, skills contribute the frontmatter description, team state is a member/task
+summary from `team.json`, and a handoff contributes its summary; the panel can save the full handoff text. Reading a file
 is delegated to the system default application through DSH's Session Remote, with a copy-path fallback.
-The panel does not modify any file and offers no settings.
+The panel does not modify any file except an explicit handoff save, and offers no settings.
 
 If you only want to check the configuration occasionally, reading the profile's `cordis.patch.yml`
 and each workspace's `AGENTS.md` gives the same answer. The value of this panel is that it sits in
@@ -54,57 +57,57 @@ changes often, that is worth something.
 面板在打开时的状态：
 
 ```
-挂载清单  [只读]  [刷新]
-这个 profile 实际挂载了什么：预规定 · 记忆库 · 技能 · MCP · 智能体预设
+挂载清单  [只读 · 交接]  [刷新]
+当前项目挂载了什么：全局与工作区的项目简报、记忆、技能与 MCP。
 
-▸ 预规定 (1)
-▸ 记忆库 (2 个工作区 · 15 个文件)
-▸ 技能 (9)
-▸ MCP 服务器 (3)
-▸ 智能体预设 (5)
+▸ 全局 (22)
+▸ 工作区  [my-app ▾]  7
 ```
 
 *The panel in its initial state.*
 
-面板打开时的状态。五个栏目常显，无内容时展开可见一行说明。
+默认两个根都收起；点开根，再点开子节。空子节展开后显示一行说明。
+展开/收起、箭头、自绘下拉菜单与按钮统一使用 170ms 缓动；系统开启「减少动态效果」时全部关闭。
 
-*The panel in its initial state. All five groups are always shown, and an empty one explains
-itself when expanded.*
+*The panel in its initial state. Both roots start collapsed; open a root, then a sub-section. An empty one explains itself.
+Expand/collapse, arrows, the custom select menu, and buttons share one 170ms easing; all animation is disabled under "reduce motion".*
 
-### 1.2 记忆库展开至文件级 · *Library Expanded to Files*
+### 1.2 记忆展开至文件级 · *Memory Expanded to Files*
 
 ```
-▾ 记忆库 (2 个工作区 · 15 个文件)
-   ▾ my-app
-       AGENTS.md  [自动注入] · 6 节 · [打开]
-       MEMORY.md · 6.7 KB · 2026-10-16 · [打开]
-       overview.md · 12.9 KB · 2026-10-17 · [打开]
-       …
-   ▸ another-project
+▾ 工作区  [my-app ▾]
+   ▾ 记忆
+        AGENTS.md  [自动注入] · 6 节
+        MEMORY.md · 6.7 KB · 2026-10-16
+        overview.md · 12.9 KB · 2026-10-17
+        …
 ```
 
-两图均为示意，数据非实测。未发现记忆库时，该栏显示一行说明，不隐藏。
+两图均为示意，数据非实测。空子节展开后显示一行说明，不隐藏。
 
-*Both figures are illustrative and the data is not measured. When no memory library is found,
-the group shows an explanatory line instead of hiding.*
+*Both figures are illustrative and the data is not measured. An empty sub-section shows an
+explanatory line instead of hiding.*
 
 ### 1.3 栏目与数据来源 · *Groups and Data Sources*
 
-| 栏 | 来源 | 展开后 |
+| 根 | 子节 | 来源 |
 |------|------|------|
-| 预规定 | 全局 `~/.dsh/AGENTS.md`（每个会话都注入的那份） | 该文件的 `##` 章节标题 |
-| 记忆库 | 每个已注册工作区的 `AGENTS.md` / `AGENTS.local.md`（注入），以及 `memory`、`.dsh/memory`、`.agents/memory` 下的 `.md`（不自动读）；按工作区分组 | 规则文件章节数；记忆文件名、大小、日期 |
-| 技能 | 全局：`~/.dsh/skills`、`~/.agents/skills`；工作区：每个已注册工作区的 `<ws>/.dsh/skills`、`<ws>/.agents/skills` | 描述全文、文件路径、来源 |
-| MCP 服务器 | profile 补丁 + 全局补丁层中的 `dsh-mcp-client` 行 | 补丁行 id、env 变量名、目标、所属预设 |
-| 智能体预设 | profile 补丁 + 全局补丁层中的预设行，以及内置的 `standard`、`ptc`、`minimal`、`cordis` | 补丁行、标题 |
+| 全局 | 项目简报 / 记忆 / 技能 / MCP | profile 与补丁、`~/.dsh/AGENTS.md`、全局记忆库、全局技能（含 bundle 内置）、profile 补丁 MCP；状态点来自 Host 的 `skills` / `tools` 注册表 |
+| 工作区 | 项目简报 / 记忆 / 技能 / MCP | 当前工作区的规则、`memory` 文件、工作区技能、`.dsh/mcp.json`、团队与交接 |
 
-| Group | Source | Expanded |
+| Root | Sub-section | Source |
 |------|------|------|
-| Instructions | The global `~/.dsh/AGENTS.md` — the one injected into every session | The `##` headings of that file |
-| Memory libraries | Every registered workspace's `AGENTS.md` / `AGENTS.local.md` (injected) plus the `.md` files under `memory`, `.dsh/memory`, `.agents/memory` (not read automatically); grouped by workspace | Instruction sections; memory file name, size, date |
-| Skills | Global: `~/.dsh/skills`, `~/.agents/skills`; workspace: `<ws>/.dsh/skills`, `<ws>/.agents/skills` of every registered workspace | Full description, file path, source |
-| MCP servers | `dsh-mcp-client` rows in the profile patch and the global patch layer | Patch row id, env variable names, target, owning preset |
-| Agent presets | Preset rows in the profile patch and the global patch layer, plus the built-in `standard`, `ptc`, `minimal`, `cordis` | Patch row, title |
+| Global | Project brief / Memory / Skills / MCP | profile and patch, `~/.dsh/AGENTS.md`, global memory libraries, global skills (including bundle-embedded), profile-patch MCP; dots come from the Host `skills` / `tools` registries |
+| Workspace | Project brief / Memory / Skills / MCP | The selected workspace's rules, `memory` files, workspace skills, `.dsh/mcp.json`, team state and last handoff |
+
+工作区 MCP 读 `<ws>/.dsh/mcp.json`；`<ws>/.mcp.json` 只作为外部配置显示，DSH 不挂载，状态点为灰。
+状态点按所选工作区计算：有该工作区的活动会话时用会话注册表，否则用目录（MCP 工具状态为灰）。
+
+Workspace MCP reads `<ws>/.dsh/mcp.json`; `<ws>/.mcp.json` is shown as external configuration only — DSH does not mount it, so its dot is gray.
+Dots use the selected workspace: with a live session there they use its registry, otherwise the catalog (MCP tool status is gray).
+
+工作区 → 项目简报 → 交接 可编辑，保存到 `.dsh-mounts/handoff.md`（≤20 KB）；旧 `.dsh/handoff.md` 仍可读取。
+The Workspace → Project brief → Handoff row is editable; saves go to `.dsh-mounts/handoff.md` (≤20 KB). A legacy `.dsh/handoff.md` is still read.
 
 ---
 
@@ -112,23 +115,21 @@ the group shows an explanatory line instead of hiding.*
 
 | 层级 | 触发 | 内容 |
 |------|------|------|
-| L1 | 打开面板 | 五个栏目标题及计数 |
-| L2 | 点击栏目标题 | 该栏条目 |
-| L3 | 点击条目 | 该条目自身的字段 |
-| L3+ | 点击记忆库的工作区标题 | 该工作区的规则文件与记忆文件 |
-| L4 | 点技能的工作区分组 | 该工作区的技能条目 |
+| L1 | 打开面板 | 全局 / 工作区两个根 |
+| L2 | 点击根 | 项目简报 / 记忆 / 技能 / MCP 四个子节 |
+| L3 | 点击子节 | 该子节的条目 |
+| L4 | 点击条目 | 该条目的详情（路径、章节、来源、env、所属预设） |
 
-初始状态停留在 L1。展开内容仅涉及被展开条目自身的字段。
+初始状态停留在 L1；工作区默认取当前，可在工作区标题下切换。
 
 | Level | Trigger | Content |
 |------|------|------|
-| L1 | Opening the panel | The five group titles and their counts |
-| L2 | Clicking a group title | The entries of that group |
-| L3 | Clicking an entry | The fields of that entry |
-| L3+ | Clicking a memory workspace title | That workspace's instruction files and memory files |
-| L4 | Clicking a skill workspace group | The skills of that workspace |
+| L1 | Opening the panel | The Global and Workspace roots |
+| L2 | Clicking a root | The Project brief / Memory / Skills / MCP sub-sections |
+| L3 | Clicking a sub-section | The entries of that sub-section |
+| L4 | Clicking an entry | That entry's details (path, sections, source, env, owning preset) |
 
-The initial state rests at L1. An expansion only ever shows the fields of the expanded entry itself.
+The initial state rests at L1; the workspace defaults to the current one and can be switched under the Workspace title.
 
 ---
 
@@ -165,22 +166,24 @@ so the module is imported again.
 
 ## 4. 安全模型 · *Security Model*
 
-- 不写文件，不启动子进程，不发起出站请求。（面板的配置写入见下一条，走 DSH 的配置服务，不直接写文件。）
-- 仅暴露一个 HTTP 端点 `GET /dsh-mounts/api`。
-- 该端点仅接受 loopback 的 `Host` 头（`127.0.0.1`、`localhost`、`[::1]`），
+- 除 `POST /dsh-mounts/handoff` 写入工作区 `.dsh-mounts/handoff.md` 外，不写文件，不启动子进程，不发起出站请求。
+- 暴露两个 HTTP 端点：`GET /dsh-mounts/api`（只读快照）与 `POST /dsh-mounts/handoff`（保存交接，≤20 KB）。
+- 注册一个只读模型工具 `project_context`：只返回简报文本，不写文件、不执行命令。
+- 两个端点都只接受 loopback 的 `Host` 头（`127.0.0.1`、`localhost`、`[::1]`），
   其余返回 403，用于阻断 DNS rebinding。
-- 仅接受 GET 与 HEAD，其余返回 405。响应带 `Cache-Control: no-store`。
-- 不接受 `cwd` 参数。
+- `/api` 只接受 GET 与 HEAD，其余返回 405；`/handoff` 只接受 POST。响应带 `Cache-Control: no-store`。
+- 可选 `workspace` 查询参数（名称或绝对路径）用于选择展示的工作区；只读，不影响其他会话。
 - 不返回文件内容：记忆库仅 `stat`，技能仅取 frontmatter 的 description。
 
 「打开」不新建端点，使用 DSH 现有的 Session Remote，路径由 Host 侧复核。
 
-- No files are written, no subprocess is started, no outbound request is made.
-- One HTTP endpoint is exposed: `GET /dsh-mounts/api`.
-- It accepts only a loopback `Host` header (`127.0.0.1`, `localhost`, `[::1]`) and returns 403
+- Except for `POST /dsh-mounts/handoff`, which writes the workspace's `.dsh-mounts/handoff.md`, no files are written, no subprocess is started, and no outbound request is made.
+- Two HTTP endpoints are exposed: `GET /dsh-mounts/api` (read-only snapshot) and `POST /dsh-mounts/handoff` (save a handoff, ≤20 KB).
+- It registers one read-only model tool, `project_context`, which only returns brief text; it writes no file and runs no command.
+- Both endpoints accept only a loopback `Host` header (`127.0.0.1`, `localhost`, `[::1]`) and return 403
   otherwise, which blocks DNS rebinding.
-- It accepts only GET and HEAD and returns 405 otherwise; responses carry `Cache-Control: no-store`.
-- It does not accept a `cwd` parameter.
+- `/api` accepts only GET and HEAD; `/handoff` accepts only POST. Responses carry `Cache-Control: no-store`.
+- It accepts an optional `workspace` query parameter (name or absolute path) to select the displayed workspace; read-only, and it does not affect other sessions.
 - It returns no file contents: memory libraries are only `stat`-ed and skills contribute the
   frontmatter description.
 
@@ -193,34 +196,38 @@ re-validated on the Host side.
 
 | 限制 | 说明 |
 |------|------|
-| 面板只读 | 不提供编辑、启停与删除 |
-| 内置预设只能看到名称 | 其定义不在 profile 补丁里，面板读不到，因此不能展开 |
-| 只识别名为 memory 的目录 | 不做模糊匹配 |
-| 记忆库默认不包含任何目录 | 只从工作区内的 memory/ 发现 |
+| 面板以只读为主 | 唯一写入是 `.dsh-mounts/handoff.md`；不提供启停与删除 |
+| 只识别 memory 目录 | 不做模糊匹配 |
+| 记忆库位置固定 | 全局只探测 `~/.dsh/memory`、`.engramory-memory`、`memory-bank`；工作区只探测三个 memory 目录 |
 | 技能描述最多 1000 字 | 超出部分以省略号结尾 |
-| 工作区取最近更新的一个 | 可能不是当前会话所在的工作区 |
-| 不标示当前会话使用的预设 | 只列出已定义的预设，不判断哪一个正在生效 |
-| 不列 bundle 内置技能 | 内置技能分散在各 bundle 内，无法统一枚举；只显示文件系统上的技能 |
-| 工作区技能会列出所有工作区的 | 扫描范围是工作区注册表，不是当前会话；别的工作区的技能当前会话可能用不到 |
+| 工作区取最近更新的一个 | 简报默认如此；`project_context` 工具按当前会话工作目录，面板可在简报里切换 |
+| 简报不落盘 | 每次请求实时生成，只含路径与元数据，不含记忆正文 |
+| 团队状态只读 | 只读 dsh-agent-teams 的 `team.json`；该插件改格式时可能只显示成员/任务数 |
+| 状态点按所选工作区计算 | 有活动会话时按该会话的注册表；无会话时按目录（`skills.list` 不带 scope），MCP 工具状态为灰 |
+| 外部 .mcp.json 不挂载 | 只显示为「外部」，状态点为灰；要挂载请用 `.dsh/mcp.json` |
+| bundle 内置技能由生效数据补入 | 文件扫描看不到 bundle；它们以 `bundled` 来源补入技能列表，行尾同样有状态点 |
+| 不显示当前会话的预设 | 只在 meta 的「生效视角」里显示所选工作区会话的预设；无会话时显示「目录」 |
 | 不自动读取 customSkillDirs | 该配置属于另一个插件 |
-| 没有设置界面 | DSH 配置无法写入 include 插入的行；记忆库只从工作区 memory/ 目录发现 |
-| 记忆库块同时列规则文件 | 二者都按工作区归属，但只有规则文件会被注入 |
+| 没有设置界面 | DSH 配置无法写入 include 插入的行；记忆库位置固定 |
+| 记忆同时列规则与记忆文件 | 规则会被注入，记忆文件不会 |
 | 「打开」在部分环境下降级为「复制路径」 | 属预期行为，点击后完整路径进入剪贴板 |
 
 | Limitation | Note |
 |------|------|
-| Read-only | No editing, toggling, or deleting |
-| Built-in presets show names only | Their definitions are not in the profile patch, so the panel cannot read or expand them |
+| Mostly read-only | The only write is `.dsh-mounts/handoff.md`; no toggling or deleting |
 | Only directories named memory are recognised | No fuzzy matching |
-| Memory libraries are empty by default | Discovered only from workspace memory/ directories |
+| Memory locations are fixed | Global: only `~/.dsh/memory`, `.engramory-memory`, `memory-bank`; workspace: the three memory directories |
 | Skill descriptions are capped at 1000 characters | Longer ones end with an ellipsis |
-| The workspace is the most recently updated one | It may not be the workspace of the current session |
-| The preset in use by a session is not marked | Only defined presets are listed; which one is active is not determined |
-| Bundle-embedded skills are not listed | They are spread across bundles and cannot be enumerated uniformly; only skills on the filesystem are shown |
-| Workspace skills cover every workspace | The scope is the workspace registry, not the current session; another workspace's skills may be unusable here |
+| The workspace is the most recently updated one | That is the brief's default; the `project_context` tool uses the current session's cwd, and the panel can switch workspaces |
+| The brief is generated live, never stored | It contains paths and metadata only, no memory bodies |
+| Team state is read-only | It reads dsh-agent-teams' `team.json`; a format change may reduce it to counts |
+| The status dots use the selected workspace | With a live session in that workspace they use its registry; without one they use the catalog (`skills.list` without scope), and MCP tool status is gray |
+| External `.mcp.json` is not mounted | It is shown as "External" with a gray dot; use `.dsh/mcp.json` to mount |
+| Bundle-embedded skills are added from the effective data | A file scan cannot see bundles; they join the list with source `bundled` and the same dot |
+| The current session's preset is not shown | The meta "Effective view" chip shows the selected workspace's session preset; without a session it shows "Catalog" |
 | `customSkillDirs` is not read automatically | That setting belongs to another plugin |
-| No settings UI | DSH settings cannot write a row inserted by include; memory libraries come only from workspace memory/ directories |
-| The memory group also lists instruction files | Both are grouped by workspace, but only instruction files are injected |
+| No settings UI | DSH settings cannot write a row inserted by include; memory locations are fixed |
+| The memory group lists both rules and memory files | Rules are injected; memory files are not |
 | "Open" degrades to "Copy path" in some environments | Expected behaviour; clicking places the full path on the clipboard |
 
 ---
@@ -232,8 +239,13 @@ re-validated on the Host side.
 读盘文本先做 `\r\n?` 到 `\n` 的规范化。CRLF 的 `SKILL.md` 会使 frontmatter 解析静默失败，
 description 退化为空字符串。
 
+Host 冒烟测试：`npm test`（`node:test`，无第三方依赖），覆盖扫描、外部 MCP 标记、交接写入与方法/大小限制。
+
 Text read from disk is normalised from `\r\n?` to `\n` first. A CRLF `SKILL.md` makes
 frontmatter parsing fail silently and the description degrade to an empty string.
+
+Host smoke tests: `npm test` (`node:test`, no third-party dependencies) cover scanning,
+external MCP marking, handoff writes, and method/size limits.
 
 如需注入配置，可直接改本 bundle 的 `cordis.patch.yml` 的 `config`（仅对本机安装有效，不建议提交）。
 
@@ -248,7 +260,7 @@ To inject configuration, edit the `config` of this bundle's own `cordis.patch.ym
 dsh-mounts/
 ├── package.json          # 包清单、dsh.bundle 与 dsh.client · Package manifest
 ├── cordis.patch.yml      # 单条 insert：mounts-panel · Bundle patch
-├── index.js              # Host 半：只读扫描与 GET /dsh-mounts/api · Host half
+├── index.js              # Host 半：扫描 + GET /api + POST /handoff · Host half
 ├── client.js             # Web 半：侧栏一级面板与 main keyed 槽 · Client half
 ├── locale/               # 面板标题与描述的中英文案 · Panel title and description
 │   ├── zh.json
@@ -256,6 +268,7 @@ dsh-mounts/
 ├── icon.svg              # 插件图标 · Plugin icon
 ├── README.md             # 本文件 · This file
 ├── CHANGELOG.md          # 更新日志 · Changelog
+├── test/host.test.mjs    # Host 冒烟测试 · Host smoke tests
 └── LICENSE               # MIT · MIT
 ```
 
@@ -269,6 +282,7 @@ dsh-mounts/
 | 安装 | Creator 模式（`cordis` preset） |
 | 日常使用 | 不要求 Creator 模式 |
 | 客户端服务 | `remote`、`remote.session`、`connection`、`locale` |
+| Host 服务 | `webServer`（必需）；`tools`（可选，缺省时不注册 `project_context`） |
 | 平台 | Windows 已验证，其余未测试 |
 | 第三方依赖 | 无 |
 
@@ -278,6 +292,7 @@ dsh-mounts/
 | Installation | Creator mode (the `cordis` preset) |
 | Everyday use | Creator mode not required |
 | Client services | `remote`, `remote.session`, `connection`, `locale` |
+| Host services | `webServer` (required); `tools` (optional; without it `project_context` is not registered) |
 | Platform | Windows verified; other platforms untested |
 | Third-party dependencies | None |
 
