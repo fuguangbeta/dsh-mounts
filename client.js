@@ -31,7 +31,7 @@ window.__ModuleLoader__.load({
       'panel.loading': '读取中…',
       'panel.error': '读取失败',
       'panel.retry': '重试',
-      'panel.renderFailed': '面板渲染失败',
+      'panel.renderFailed': '面板渲染失败：',
       'meta.workspaceCount': '工作区 %s 个',
       'meta.patch': '补丁',
       'meta.inferred': '（推断）',
@@ -72,10 +72,6 @@ window.__ModuleLoader__.load({
       'handoff.templateNext': '下一步',
       'brief.copied': '已复制',
       'brief.copyFailed': '复制失败',
-      'gate.copy': '复制启动门',
-      'gate.title': '开工启动门',
-      'gate.read': '开工先读交接：',
-      'gate.follow': '按其中的下一步行动，不要自行认领待办。',
       'team.none': '未检测到',
       'team.members': '成员',
       'team.tasks': '任务',
@@ -135,7 +131,7 @@ window.__ModuleLoader__.load({
       'panel.loading': 'Reading…',
       'panel.error': 'Failed to read',
       'panel.retry': 'Retry',
-      'panel.renderFailed': 'Panel render failed',
+      'panel.renderFailed': 'Panel render failed: ',
       'meta.workspaceCount': '%s workspaces',
       'meta.patch': 'Patch',
       'meta.inferred': '(inferred)',
@@ -176,10 +172,6 @@ window.__ModuleLoader__.load({
       'handoff.templateNext': 'Next step',
       'brief.copied': 'Copied',
       'brief.copyFailed': 'Copy failed',
-      'gate.copy': 'Copy startup gate',
-      'gate.title': 'Startup gate',
-      'gate.read': 'Read the handoff first: ',
-      'gate.follow': 'Follow its next steps; do not pick up its todos on your own.',
       'team.none': 'Not detected',
       'team.members': 'Members',
       'team.tasks': 'Tasks',
@@ -411,17 +403,6 @@ window.__ModuleLoader__.load({
         const where = String((item && item.path) || '').toLowerCase()
         return name.includes(needle) || where.includes(needle)
       })
-    }
-
-    function startupGateSnippet(t) {
-      const label = typeof t === 'function' ? t : (key) => ZN[key] || key
-      return [
-        '## ' + label('gate.title'),
-        '',
-        '- ' + label('gate.read') + '`.dsh-mounts/handoff.md`',
-        '- ' + label('gate.follow'),
-        '',
-      ].join('\n')
     }
 
     function shortTime(iso) {
@@ -794,7 +775,7 @@ window.__ModuleLoader__.load({
     }
 
     if (typeof globalThis !== 'undefined' && globalThis.__DSH_MOUNTS_TEST__) {
-      globalThis.__DSH_MOUNTS_TEST__.helpers = { shortDate, bytes, mcpCountText, handoffTemplate, filterSkills, filterWorkspaces, startupGateSnippet }
+      globalThis.__DSH_MOUNTS_TEST__.helpers = { shortDate, bytes, mcpCountText, handoffTemplate, filterSkills, filterWorkspaces }
     }
 
     return {
@@ -927,7 +908,7 @@ window.__ModuleLoader__.load({
               return h(
                 'div',
                 { className: 'dmp-empty' },
-                this.props.failLabel + '：' + message + ' ',
+                this.props.failLabel + message + ' ',
                 h('button', { className: 'dmp-btn', type: 'button', onClick: this.retry }, this.props.retryLabel),
               )
             }
@@ -957,44 +938,9 @@ window.__ModuleLoader__.load({
           const [handoffSaving, setHandoffSaving] = React.useState(false)
           const handoffInputRef = React.useRef(null)
           const [canOpen, setCanOpen] = React.useState(false)
-          const [copyState, setCopyState] = React.useState('idle')
-          const copyTimer = React.useRef(null)
-          const [gateCopyState, setGateCopyState] = React.useState('idle')
-          const gateCopyTimer = React.useRef(null)
           const [skillQuery, setSkillQuery] = React.useState('')
           const data = inventory.data
-
-          // Brief selection lives at the page top so the header actions and the
-          // nested render function read the same values: the copy button needs
-          // briefText even while the body is still loading.
-          const briefWorkspaces = (data && data.workspaces) || []
           const briefWorkspace = (data && data.briefWorkspace) || ''
-          const brief = data && typeof data.brief === 'string' ? data.brief : ''
-          const defaultBriefName = briefWorkspace || (briefWorkspaces[0] && briefWorkspaces[0].name) || ''
-          const activeBrief = briefWorkspaces.find((entry) => entry.name === (briefPick || defaultBriefName)) || null
-          const briefText = activeBrief ? activeBrief.brief || '' : brief
-          const briefName = activeBrief ? activeBrief.name : defaultBriefName
-
-          const copyText = (text, setState, timer) => {
-            const settle = (state) => {
-              setState(state)
-              if (timer.current) clearTimeout(timer.current)
-              timer.current = setTimeout(() => setState('idle'), 1500)
-            }
-            try {
-              const clipboard = typeof navigator !== 'undefined' ? navigator.clipboard : null
-              if (!clipboard || typeof clipboard.writeText !== 'function') {
-                settle('failed')
-                return
-              }
-              clipboard.writeText(text).then(() => settle('copied'), () => settle('failed'))
-            } catch {
-              settle('failed')
-            }
-          }
-
-          const copyBrief = () => copyText(briefText || brief, setCopyState, copyTimer)
-          const copyGate = () => copyText(startupGateSnippet(t), setGateCopyState, gateCopyTimer)
 
           // Detect the opener after mount, never during apply: touching the Remote
           // before the client services settle used to abort the whole plugin.
@@ -1015,14 +961,6 @@ window.__ModuleLoader__.load({
               clearTimeout(last)
             }
           }, [])
-
-          React.useEffect(
-            () => () => {
-              if (copyTimer.current) clearTimeout(copyTimer.current)
-              if (gateCopyTimer.current) clearTimeout(gateCopyTimer.current)
-            },
-            [],
-          )
 
           const toggleBlock = (id) => setOpenBlocks((previous) => ({ ...previous, [id]: !previous[id] }))
           const toggleSection = (id) => setOpenSections((previous) => ({ ...previous, [id]: !previous[id] }))
@@ -1752,25 +1690,6 @@ window.__ModuleLoader__.load({
                   'div',
                   { className: 'dmp-actions' },
                   h(Chip, { tone: 'ok' }, t('panel.readonly')),
-                  h(
-                    'button',
-                    {
-                      className: 'dmp-btn',
-                      type: 'button',
-                      disabled: !(briefText || brief),
-                      onClick: copyBrief,
-                    },
-                    copyState === 'copied' ? t('brief.copied') : copyState === 'failed' ? t('brief.copyFailed') : t('brief.copy'),
-                  ),
-                  h(
-                    'button',
-                    {
-                      className: 'dmp-btn',
-                      type: 'button',
-                      onClick: copyGate,
-                    },
-                    gateCopyState === 'copied' ? t('brief.copied') : gateCopyState === 'failed' ? t('brief.copyFailed') : t('gate.copy'),
-                  ),
                   h(
                     'button',
                     {
