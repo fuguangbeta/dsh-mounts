@@ -231,8 +231,10 @@ window.__ModuleLoader__.load({
 
     const CSS = `
 .dmp-root{--dmp-ease:cubic-bezier(.2,0,0,1);--dmp-dur:170ms;height:100%;overflow:auto;background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-primary);}
-.dmp-inner{max-width:1020px;margin:0 auto;padding:30px 34px 76px;animation:dmp-enter var(--dmp-dur) var(--dmp-ease) both;}
+.dmp-root{animation:dmp-pane-in 180ms ease-out both;}
+@keyframes dmp-pane-in{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:none;}}
 @keyframes dmp-enter{from{opacity:0;transform:translateY(3px);}to{opacity:1;transform:none;}}
+.dmp-inner{max-width:1020px;margin:0 auto;padding:30px 34px 76px;}
 .dmp-head{display:flex;align-items:flex-start;gap:16px;}
 .dmp-title{font-size:20px;font-weight:600;letter-spacing:.01em;}
 .dmp-sub{margin-top:6px;font-size:13px;line-height:1.5;color:var(--dsw-alias-label-secondary);}
@@ -250,7 +252,9 @@ window.__ModuleLoader__.load({
 .dmp-meta-key{flex:none;}
 .dmp-meta-value{min-width:0;overflow:hidden;text-overflow:ellipsis;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:11.5px;color:var(--dsw-alias-label-primary);}
 .dmp-block{margin-top:12px;border:1px solid var(--dsw-alias-border-l1);border-radius:12px;background:var(--dsw-alias-bg-layer-1);overflow:hidden;}
-.dmp-block-head{display:flex;align-items:center;gap:10px;width:100%;padding-block:12px;padding-right:16px;cursor:pointer;transition:background-color var(--dmp-dur) var(--dmp-ease);}
+.dmp-block-head{display:flex;align-items:center;gap:10px;width:100%;padding-block:12px;padding-right:16px;cursor:pointer;animation:dmp-pane-in 180ms ease-out both;transition:background-color var(--dmp-dur) var(--dmp-ease);}
+section.dmp-block:nth-of-type(2) .dmp-block-head{animation-delay:60ms;}
+@media (prefers-reduced-motion: reduce){.dmp-root,.dmp-block-head{animation:none!important;}}
 .dmp-block-head:hover{background:var(--dsw-alias-bg-layer-2);}
 .dmp-block-toggle{display:flex;align-items:center;gap:10px;flex:1;min-width:0;padding:0;background:none;border:0;color:inherit;font:inherit;text-align:left;cursor:pointer;}
 .dmp-block-toggle:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:-2px;}

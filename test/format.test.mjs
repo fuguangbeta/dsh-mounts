@@ -320,6 +320,14 @@ test('panel smoke: a render error becomes one readable line with retry', () => {
   assert.match(output, /重试/)
 })
 
+test('panel smoke: the pane entrance animation is present and motion-safe', () => {
+  const { page, ReactStub } = mountPanel(null)
+  const output = renderTree(ReactStub.createElement(page, {}))
+  assert.match(output, /\.dmp-root\{animation:dmp-pane-in 180ms ease-out both;\}/)
+  assert.match(output, /@keyframes dmp-pane-in\{from\{opacity:0;transform:translateY\(6px\);\}to\{opacity:1;transform:none;\}\}/)
+  assert.match(output, /prefers-reduced-motion: reduce\)\{\.dmp-root,\.dmp-block-head\{animation:none!important;\}\}/)
+})
+
 const searchSnapshot = {
   skills: [
     {
