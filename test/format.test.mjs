@@ -275,6 +275,7 @@ test('panel smoke: the ready state renders the header and copy button', () => {
   const { page, ReactStub } = mountPanel({ status: 'ready', data: readySnapshot(), error: null })
   const output = renderTree(ReactStub.createElement(page, {}))
   assert.match(output, /复制简报/)
+  assert.match(output, /复制启动门/)
   assert.match(output, /生成于/)
 })
 
@@ -287,4 +288,25 @@ test('panel smoke: a render error becomes one readable line with retry', () => {
   const output = renderTree(instance.render())
   assert.match(output, /面板渲染失败：boom/)
   assert.match(output, /重试/)
+})
+
+test('startupGateSnippet contains the title, path, and the action rule', () => {
+  const snippet = helpers.startupGateSnippet()
+  assert.match(snippet, /^## 开工启动门$/m)
+  assert.match(snippet, /\.dsh-mounts\/handoff\.md/)
+  assert.match(snippet, /开工先读交接/)
+  assert.match(snippet, /不要自行认领待办/)
+})
+
+test('startupGateSnippet follows the active dictionary', () => {
+  const en = (key) =>
+    ({
+      'gate.title': 'Startup gate',
+      'gate.read': 'Read the handoff first: ',
+      'gate.follow': 'Follow its next steps; do not pick up its todos on your own.',
+    })[key] || key
+  const snippet = helpers.startupGateSnippet(en)
+  assert.match(snippet, /^## Startup gate$/m)
+  assert.match(snippet, /\.dsh-mounts\/handoff\.md/)
+  assert.match(snippet, /do not pick up/)
 })

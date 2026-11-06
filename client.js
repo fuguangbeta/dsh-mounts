@@ -72,6 +72,10 @@ window.__ModuleLoader__.load({
       'handoff.templateNext': '下一步',
       'brief.copied': '已复制',
       'brief.copyFailed': '复制失败',
+      'gate.copy': '复制启动门',
+      'gate.title': '开工启动门',
+      'gate.read': '开工先读交接：',
+      'gate.follow': '按其中的下一步行动，不要自行认领待办。',
       'team.none': '未检测到',
       'team.members': '成员',
       'team.tasks': '任务',
@@ -172,6 +176,10 @@ window.__ModuleLoader__.load({
       'handoff.templateNext': 'Next step',
       'brief.copied': 'Copied',
       'brief.copyFailed': 'Copy failed',
+      'gate.copy': 'Copy startup gate',
+      'gate.title': 'Startup gate',
+      'gate.read': 'Read the handoff first: ',
+      'gate.follow': 'Follow its next steps; do not pick up its todos on your own.',
       'team.none': 'Not detected',
       'team.members': 'Members',
       'team.tasks': 'Tasks',
@@ -403,6 +411,17 @@ window.__ModuleLoader__.load({
         const where = String((item && item.path) || '').toLowerCase()
         return name.includes(needle) || where.includes(needle)
       })
+    }
+
+    function startupGateSnippet(t) {
+      const label = typeof t === 'function' ? t : (key) => ZN[key] || key
+      return [
+        '## ' + label('gate.title'),
+        '',
+        '- ' + label('gate.read') + '`.dsh-mounts/handoff.md`',
+        '- ' + label('gate.follow'),
+        '',
+      ].join('\n')
     }
 
     function shortTime(iso) {
@@ -775,7 +794,7 @@ window.__ModuleLoader__.load({
     }
 
     if (typeof globalThis !== 'undefined' && globalThis.__DSH_MOUNTS_TEST__) {
-      globalThis.__DSH_MOUNTS_TEST__.helpers = { shortDate, bytes, mcpCountText, handoffTemplate, filterSkills, filterWorkspaces }
+      globalThis.__DSH_MOUNTS_TEST__.helpers = { shortDate, bytes, mcpCountText, handoffTemplate, filterSkills, filterWorkspaces, startupGateSnippet }
     }
 
     return {
@@ -940,6 +959,8 @@ window.__ModuleLoader__.load({
           const [canOpen, setCanOpen] = React.useState(false)
           const [copyState, setCopyState] = React.useState('idle')
           const copyTimer = React.useRef(null)
+          const [gateCopyState, setGateCopyState] = React.useState('idle')
+          const gateCopyTimer = React.useRef(null)
           const [skillQuery, setSkillQuery] = React.useState('')
           const data = inventory.data
 
@@ -954,12 +975,11 @@ window.__ModuleLoader__.load({
           const briefText = activeBrief ? activeBrief.brief || '' : brief
           const briefName = activeBrief ? activeBrief.name : defaultBriefName
 
-          const copyBrief = () => {
-            const text = briefText || brief
+          const copyText = (text, setState, timer) => {
             const settle = (state) => {
-              setCopyState(state)
-              if (copyTimer.current) clearTimeout(copyTimer.current)
-              copyTimer.current = setTimeout(() => setCopyState('idle'), 1500)
+              setState(state)
+              if (timer.current) clearTimeout(timer.current)
+              timer.current = setTimeout(() => setState('idle'), 1500)
             }
             try {
               const clipboard = typeof navigator !== 'undefined' ? navigator.clipboard : null
@@ -972,6 +992,9 @@ window.__ModuleLoader__.load({
               settle('failed')
             }
           }
+
+          const copyBrief = () => copyText(briefText || brief, setCopyState, copyTimer)
+          const copyGate = () => copyText(startupGateSnippet(t), setGateCopyState, gateCopyTimer)
 
           // Detect the opener after mount, never during apply: touching the Remote
           // before the client services settle used to abort the whole plugin.
@@ -996,6 +1019,7 @@ window.__ModuleLoader__.load({
           React.useEffect(
             () => () => {
               if (copyTimer.current) clearTimeout(copyTimer.current)
+              if (gateCopyTimer.current) clearTimeout(gateCopyTimer.current)
             },
             [],
           )
@@ -1737,6 +1761,15 @@ window.__ModuleLoader__.load({
                       onClick: copyBrief,
                     },
                     copyState === 'copied' ? t('brief.copied') : copyState === 'failed' ? t('brief.copyFailed') : t('brief.copy'),
+                  ),
+                  h(
+                    'button',
+                    {
+                      className: 'dmp-btn',
+                      type: 'button',
+                      onClick: copyGate,
+                    },
+                    gateCopyState === 'copied' ? t('brief.copied') : gateCopyState === 'failed' ? t('brief.copyFailed') : t('gate.copy'),
                   ),
                   h(
                     'button',
