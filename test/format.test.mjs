@@ -123,7 +123,8 @@ test('filterWorkspaces returns an empty list when nothing matches', () => {
 
 // --- shallow render smoke: building the panel tree must never throw ---
 
-function makeReactStub(readyState) {
+function makeReactStub(readyState, plan) {
+  let hookIndex = 0
   const isInventoryState = (value) =>
     value && typeof value === 'object' && 'status' in value && 'data' in value && 'error' in value
   return {
@@ -134,7 +135,8 @@ function makeReactStub(readyState) {
       return { type, props: next }
     },
     useState(initial) {
-      let value = typeof initial === 'function' ? initial() : initial
+      const index = hookIndex++
+      let value = plan && plan[index] !== undefined ? plan[index] : typeof initial === 'function' ? initial() : initial
       if (readyState && isInventoryState(value)) value = readyState
       return [value, () => {}]
     },
@@ -216,8 +218,8 @@ function collectPlaceholders(node, out = []) {
   return out
 }
 
-function mountPanel(readyState) {
-  const ReactStub = makeReactStub(readyState)
+function mountPanel(readyState, plan) {
+  const ReactStub = makeReactStub(readyState, plan)
   const module = captured.config.factory((name) => {
     if (name === 'react') return ReactStub
     throw new Error('unexpected module: ' + name)
@@ -401,4 +403,44 @@ test('querySearch returns an empty list for a blank query', () => {
 
 test('querySearch returns an empty list when nothing matches', () => {
   assert.deepEqual(helpers.querySearch(searchIndexAll, 'zzz'), [])
+})
+
+test('workspaceExpansion opens exactly the four sections and no row details', () => {
+  const expansion = helpers.workspaceExpansion('alpha')
+  assert.deepEqual(expansion.blocks, { workspace: true })
+  assert.deepEqual(expansion.rows, {})
+  assert.deepEqual(Object.keys(expansion.sections).sort(), [
+    'ws:alpha:brief',
+    'ws:alpha:mcp',
+    'ws:alpha:memory',
+    'ws:alpha:skills',
+  ])
+  assert.ok(Object.values(expansion.sections).every((value) => value === true))
+})
+
+test('workspaceExpansion keys are scoped per workspace', () => {
+  const alpha = helpers.workspaceExpansion('alpha').sections
+  const beta = helpers.workspaceExpansion('beta').sections
+  assert.equal(Object.keys(alpha).length, 4)
+  assert.ok(Object.keys(alpha).every((key) => key.startsWith('ws:alpha:')))
+  assert.deepEqual(Object.keys(alpha).filter((key) => key in beta), [])
+})
+
+test('panel smoke: a ready workspace renders four expanded sections and no row details', () => {
+  // The stub does not run effects or state updates, so this seeds the state the
+  // pick effect would land once the snapshot arrives: block open + four sections.
+  const plan = []
+  plan[1] = { workspace: true }
+  plan[2] = helpers.workspaceExpansion('alpha').sections
+  plan[3] = 'alpha'
+  plan[4] = { status: 'ready', data: { ...readySnapshot(), briefWorkspace: 'alpha' }, error: null }
+  const { page, ReactStub } = mountPanel(null, plan)
+  const pageElement = ReactStub.createElement(page, {})
+  const expanded = collectFlags(pageElement).filter((value) => value === true)
+  assert.equal(expanded.length, 5, 'workspace block plus the four sections')
+  const output = renderTree(pageElement)
+  assert.match(output, /项目简报/)
+  assert.match(output, /记忆/)
+  assert.match(output, /技能/)
+  assert.match(output, /MCP/)
 })

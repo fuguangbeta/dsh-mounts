@@ -236,11 +236,12 @@ window.__ModuleLoader__.load({
 .dmp-head{display:flex;align-items:flex-start;gap:16px;}
 .dmp-title{font-size:20px;font-weight:600;letter-spacing:.01em;}
 .dmp-sub{margin-top:6px;font-size:13px;line-height:1.5;color:var(--dsw-alias-label-secondary);}
-.dmp-actions{margin-left:auto;display:flex;align-items:center;gap:8px;flex:none;}
+.dmp-actions{margin-left:auto;display:flex;align-items:center;gap:8px;flex:0 1 auto;min-width:0;max-width:min(480px,66%);}
+.dmp-actions > .dmp-btn,.dmp-actions > .dmp-chip{flex:0 0 auto;white-space:nowrap;}
 .dmp-chip{display:inline-flex;align-items:center;gap:4px;padding:1px 8px;border-radius:999px;border:1px solid var(--dsw-alias-border-l1);font-size:11px;line-height:18px;color:var(--dsw-alias-label-secondary);white-space:nowrap;}
 .dmp-chip.ok{color:var(--dsw-alias-state-success-primary);border-color:var(--dsw-alias-state-success-primary);}
 .dmp-chip.warn{color:var(--dsw-alias-state-warn-primary);border-color:var(--dsw-alias-state-warn-primary);}
-.dmp-btn{appearance:none;border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-primary);border-radius:8px;padding:5px 12px;font-size:12px;line-height:18px;cursor:pointer;font-family:inherit;transition:background-color var(--dmp-dur) var(--dmp-ease),border-color var(--dmp-dur) var(--dmp-ease),color var(--dmp-dur) var(--dmp-ease),transform var(--dmp-dur) var(--dmp-ease);}
+.dmp-btn{appearance:none;border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-primary);border-radius:8px;padding:5px 12px;font-size:12px;line-height:18px;cursor:pointer;font-family:inherit;white-space:nowrap;transition:background-color var(--dmp-dur) var(--dmp-ease),border-color var(--dmp-dur) var(--dmp-ease),color var(--dmp-dur) var(--dmp-ease),transform var(--dmp-dur) var(--dmp-ease);}
 .dmp-btn:hover{border-color:var(--dsw-alias-border-l2);}
 .dmp-btn:active:not(:disabled){transform:scale(.97);}
 .dmp-btn:disabled{opacity:.55;cursor:default;}
@@ -348,7 +349,7 @@ window.__ModuleLoader__.load({
 .dmp-indent-3{padding-left:64px;}
 .dmp-warning{padding-block:8px;padding-right:16px;font-size:11px;line-height:1.6;color:var(--dsw-alias-state-warn-primary);border-top:1px solid var(--dsw-alias-border-l1);}
 .dmp-foot{margin-top:18px;display:flex;flex-wrap:wrap;gap:6px 16px;font-size:11.5px;color:var(--dsw-alias-label-secondary);}
-.dmp-search-field{position:relative;flex:0 1 220px;min-width:120px;max-width:260px;display:flex;}
+.dmp-search-field{position:relative;flex:1 1 auto;min-width:0;max-width:320px;display:flex;}
 .dmp-search-input{flex:1;min-width:0;box-sizing:border-box;border:1px solid var(--dsw-alias-border-l1);border-radius:8px;background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-primary);font:inherit;font-size:11px;line-height:18px;padding:4px 8px;}
 .dmp-search-input:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:2px;}
 .dmp-search-input::placeholder{color:var(--dsw-alias-label-secondary);}
@@ -411,6 +412,24 @@ window.__ModuleLoader__.load({
 
     function anchorKey(kind, workspace, name) {
       return String(kind) + ':' + String(workspace || '') + ':' + String(name || '')
+    }
+
+    function wsSectionId(workspace, kind) {
+      return 'ws:' + String(workspace || '') + ':' + kind
+    }
+
+    function workspaceExpansion(workspace) {
+      const name = String(workspace || '')
+      return {
+        blocks: { workspace: true },
+        sections: {
+          [wsSectionId(name, 'brief')]: true,
+          [wsSectionId(name, 'memory')]: true,
+          [wsSectionId(name, 'skills')]: true,
+          [wsSectionId(name, 'mcp')]: true,
+        },
+        rows: {},
+      }
     }
 
     function buildSearchIndex(snapshot, selectedWorkspace) {
@@ -805,7 +824,13 @@ window.__ModuleLoader__.load({
       const [state, setState] = React.useState({ status: 'loading', data: null, error: null })
       const load = React.useCallback(() => {
         let live = true
-        setState({ status: 'loading', data: null, error: null })
+        // Stale-while-revalidate: keep the previous snapshot mounted so the tree
+        // never unmounts mid-switch; only the first load shows the loading line.
+        setState((previous) => ({
+          status: previous && previous.data ? 'ready' : 'loading',
+          data: previous ? previous.data : null,
+          error: null,
+        }))
         const url = workspace ? API + '?workspace=' + encodeURIComponent(workspace) : API
         fetch(url, { headers: { accept: 'application/json' }, cache: 'no-store' })
           .then((response) => {
@@ -816,7 +841,13 @@ window.__ModuleLoader__.load({
             if (live) setState({ status: 'ready', data, error: null })
           })
           .catch((error) => {
-            if (live) setState({ status: 'error', data: null, error: String((error && error.message) || error) })
+            if (live) {
+              setState((previous) => ({
+                status: 'error',
+                data: previous ? previous.data : null,
+                error: String((error && error.message) || error),
+              }))
+            }
           })
         return () => {
           live = false
@@ -835,6 +866,8 @@ window.__ModuleLoader__.load({
         filterWorkspaces,
         buildSearchIndex,
         querySearch,
+        wsSectionId,
+        workspaceExpansion,
       }
     }
 
@@ -998,7 +1031,10 @@ window.__ModuleLoader__.load({
           const searchInputRef = React.useRef(null)
           const searchFieldRef = React.useRef(null)
           const pendingAnchor = React.useRef(null)
+          const pendingPick = React.useRef(null)
           const data = inventory.data
+          const workspaceReady =
+            !briefPick || Boolean(data && String(data.briefWorkspace || '') === briefPick)
           const searchResults =
             data && searchListOpen ? querySearch(buildSearchIndex(data, briefPick), searchQuery) : []
 
@@ -1047,6 +1083,26 @@ window.__ModuleLoader__.load({
             return () => document.removeEventListener('pointerdown', onPointerDown, true)
           }, [searchListOpen])
 
+          const applyWorkspaceExpansion = (name) => {
+            const expansion = workspaceExpansion(name)
+            setOpenBlocks(expansion.blocks)
+            setOpenSections(expansion.sections)
+            setOpenRows(expansion.rows)
+            setOpenMemoryWorkspaces({})
+            setOpenSkillsScope({})
+            setOpenSkillWorkspaces({})
+          }
+
+          React.useEffect(() => {
+            const target = pendingPick.current
+            if (!target || !data) return
+            if (String(data.briefWorkspace || '') !== target) return
+            // The snapshot for the picked workspace is in; land the expansion
+            // now, as one replacement so nothing from the previous one survives.
+            pendingPick.current = null
+            applyWorkspaceExpansion(target)
+          }, [data, briefPick])
+
           React.useEffect(() => {
             if (!pendingAnchor.current) return
             const anchor = pendingAnchor.current
@@ -1057,17 +1113,19 @@ window.__ModuleLoader__.load({
           const toggleBlock = (id) => setOpenBlocks((previous) => ({ ...previous, [id]: !previous[id] }))
           const toggleSection = (id) => setOpenSections((previous) => ({ ...previous, [id]: !previous[id] }))
           const pickWorkspace = (name) => {
-            setBriefPick(name)
             setHandoffDraft(null)
-            // Manual pick only: reset the whole expansion state to layer one.
-            // Merging into previous state used to leave stale row details and
-            // group opens from the previous workspace behind.
-            setOpenBlocks({ workspace: true })
-            setOpenSections({ 'ws:brief': true, 'ws:memory': true, 'ws:skills': true, 'ws:mcp': true })
-            setOpenRows({})
-            setOpenMemoryWorkspaces({})
-            setOpenSkillsScope({})
-            setOpenSkillWorkspaces({})
+            // Re-picking the current workspace does not change state, so it
+            // would never reach the data-ready effect; land it right away.
+            if (name === briefPick && workspaceReady) {
+              pendingPick.current = null
+              applyWorkspaceExpansion(name)
+              return
+            }
+            // Record the intent only. The expansion lands once the snapshot for
+            // this workspace arrives (see the effect above), so the sections are
+            // not opened into a subtree that does not exist yet.
+            pendingPick.current = name
+            setBriefPick(name)
           }
           const closeSearchList = () => setSearchListOpen(false)
 
@@ -1093,15 +1151,20 @@ window.__ModuleLoader__.load({
             setSearchCursor(0)
             const workspace = String(item.workspace || '')
             const anchor = anchorKey(item.kind, workspace, item.name)
-            const sectionId = { memory: 'ws:memory', skill: 'ws:skills', mcp: 'ws:mcp' }[item.kind]
-            setOpenBlocks((previous) => ({ ...previous, global: false, workspace: true }))
-            setOpenSections((previous) => (sectionId ? { ...previous, [sectionId]: true } : previous))
+            const kindSuffix = { memory: 'memory', skill: 'skills', mcp: 'mcp' }[item.kind]
             const list = (data && data.workspaces) || []
             const target = workspace ? list.find((ws) => ws.name === workspace) : null
             if (target && workspace !== briefPick) {
               pendingAnchor.current = anchor
               pickWorkspace(workspace)
               return
+            }
+            setOpenBlocks((previous) => ({ ...previous, workspace: true }))
+            if (kindSuffix) {
+              setOpenSections((previous) => ({
+                ...previous,
+                [wsSectionId(workspace || briefPick, kindSuffix)]: true,
+              }))
             }
             revealAnchor(anchor)
           }
@@ -1646,13 +1709,15 @@ window.__ModuleLoader__.load({
             ]
 
             const workspaceBody = selectedEntry
-              ? [
-                  section('ws:brief', t('section.brief'), null, 1, [
+              ? !workspaceReady
+                ? [emptyLine(t('panel.loading'), 1)]
+                : [
+                  section(wsSectionId(selectedEntry.name, 'brief'), t('section.brief'), null, 1, [
                     ...wsBriefRows,
                     briefFull(selectedEntry.brief || '', 2),
                   ]),
                   section(
-                    'ws:memory',
+                    wsSectionId(selectedEntry.name, 'memory'),
                     t('section.memory'),
                     (() => {
                       const mem = selectedEntry.memory || { count: 0, folded: 0 }
@@ -1673,7 +1738,7 @@ window.__ModuleLoader__.load({
                     ],
                   ),
                   section(
-                    'ws:skills',
+                    wsSectionId(selectedEntry.name, 'skills'),
                     t('section.skills'),
                     workspaceSkills.length,
                     1,
@@ -1682,7 +1747,7 @@ window.__ModuleLoader__.load({
                       : [emptyLine(t('skills.workspaceEmpty'), 2)],
                   ),
                   section(
-                    'ws:mcp',
+                    wsSectionId(selectedEntry.name, 'mcp'),
                     t('section.mcp'),
                     mcpCount(projectMcp),
                     1,
