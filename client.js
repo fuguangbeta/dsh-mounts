@@ -54,12 +54,13 @@ window.__ModuleLoader__.load({
       'section.engines': '引擎',
       'engines.none': '未接入',
       'handoff.none': '无',
+      'handoff.noneHint': '无（写入 .dsh-mounts/handoff.md）',
       'handoff.edit': '编辑',
       'handoff.write': '写交接',
       'handoff.save': '保存',
       'handoff.saving': '保存中…',
       'handoff.cancel': '取消',
-      'handoff.placeholder': '下一步、风险、交接给谁…',
+      'handoff.placeholder': '时间 / 版本 / 现场 / 未决 / 下一步',
       'handoff.saved': '交接已保存',
       'handoff.saveFailed': '交接保存失败',
       'team.none': '未检测到',
@@ -70,6 +71,7 @@ window.__ModuleLoader__.load({
       'mcp.projectEmpty': '本项目未配置 MCP',
       'mcp.external': '外部',
       'mcp.active': '生效',
+      'mcp.configured': '配置',
       'mcp.externalHint': '.mcp.json 是外部格式，DSH 不会挂载；要挂载请用 .dsh/mcp.json。',
       'workspace.empty': '未注册工作区',
       'brief.full': '完整简报',
@@ -139,12 +141,13 @@ window.__ModuleLoader__.load({
       'section.engines': 'Engines',
       'engines.none': 'None',
       'handoff.none': 'None',
+      'handoff.noneHint': 'None (write to .dsh-mounts/handoff.md)',
       'handoff.edit': 'Edit',
       'handoff.write': 'Write handoff',
       'handoff.save': 'Save',
       'handoff.saving': 'Saving…',
       'handoff.cancel': 'Cancel',
-      'handoff.placeholder': 'Next steps, risks, who takes over…',
+      'handoff.placeholder': 'Time / version / state / open issues / next step',
       'handoff.saved': 'Handoff saved',
       'handoff.saveFailed': 'Failed to save handoff',
       'team.none': 'Not detected',
@@ -155,6 +158,7 @@ window.__ModuleLoader__.load({
       'mcp.projectEmpty': 'No project-level MCP configured',
       'mcp.external': 'External',
       'mcp.active': 'active',
+      'mcp.configured': 'configured',
       'mcp.externalHint': '.mcp.json is an external format; DSH does not mount it. Use .dsh/mcp.json instead.',
       'workspace.empty': 'No registered workspace',
       'brief.full': 'Full brief',
@@ -211,7 +215,7 @@ window.__ModuleLoader__.load({
 .dmp-meta-key{flex:none;}
 .dmp-meta-value{min-width:0;overflow:hidden;text-overflow:ellipsis;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:11.5px;color:var(--dsw-alias-label-primary);}
 .dmp-block{margin-top:12px;border:1px solid var(--dsw-alias-border-l1);border-radius:12px;background:var(--dsw-alias-bg-layer-1);overflow:hidden;}
-.dmp-block-head{display:flex;align-items:center;gap:10px;width:100%;padding-block:12px;padding-right:16px;transition:background-color var(--dmp-dur) var(--dmp-ease);}
+.dmp-block-head{display:flex;align-items:center;gap:10px;width:100%;padding-block:12px;padding-right:16px;cursor:pointer;transition:background-color var(--dmp-dur) var(--dmp-ease);}
 .dmp-block-head:hover{background:var(--dsw-alias-bg-layer-2);}
 .dmp-block-toggle{display:flex;align-items:center;gap:10px;flex:1;min-width:0;padding:0;background:none;border:0;color:inherit;font:inherit;text-align:left;cursor:pointer;}
 .dmp-block-toggle:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:-2px;}
@@ -330,6 +334,18 @@ window.__ModuleLoader__.load({
       )
     }
 
+    function shortDate(iso) {
+      const date = new Date(iso)
+      if (Number.isNaN(date.getTime())) return String(iso || '').slice(0, 10)
+      return (
+        date.getFullYear() +
+        '-' +
+        String(date.getMonth() + 1).padStart(2, '0') +
+        '-' +
+        String(date.getDate()).padStart(2, '0')
+      )
+    }
+
     function joinPath(dir, name) {
       return String(dir || '').replace(/[\\/]+$/, '') + '\\' + name
     }
@@ -345,7 +361,16 @@ window.__ModuleLoader__.load({
         { className: 'dmp-block' },
         h(
           'div',
-          { className: 'dmp-block-head dmp-indent-0' + (props.action ? ' has-action' : '') },
+          {
+            className: 'dmp-block-head dmp-indent-0' + (props.action ? ' has-action' : ''),
+            onClick: (event) => {
+              const target = event.target
+              if (target && typeof target.closest === 'function' && target.closest('.dmp-block-toggle, .dmp-block-action')) {
+                return
+              }
+              props.onToggle()
+            },
+          },
           h(
             'button',
             {
@@ -1001,7 +1026,7 @@ window.__ModuleLoader__.load({
                 effectiveAvailable && effectiveScope === 'session'
                   ? list.filter((server) => mcpOn(server) === true).length
                   : null
-              return configured + ' / ' + (active === null ? '—' : active) + ' ' + t('mcp.active')
+              return t('mcp.configured') + ' ' + configured + ' · ' + t('mcp.active') + ' ' + (active === null ? '—' : active)
             }
 
             const emptyLine = (text, depth) =>
@@ -1031,7 +1056,7 @@ window.__ModuleLoader__.load({
                 'div',
                 { className: 'dmp-file dmp-indent-' + depth, key: (file.dir || '') + '|' + file.name, title: target },
                 h('span', { className: 'dmp-file-name' }, file.name),
-                h('span', { className: 'dmp-file-meta' }, bytes(file.bytes) + ' · ' + String(file.mtime).slice(0, 10)),
+                h('span', { className: 'dmp-file-meta' }, bytes(file.bytes) + ' · ' + shortDate(file.mtime)),
                 h(
                   'button',
                   {
@@ -1208,7 +1233,7 @@ window.__ModuleLoader__.load({
                   h(Row, {
                     key: 'w-handoff',
                     name: t('section.handoff'),
-                    secondary: selectedEntry.handoff ? selectedEntry.handoff.preview : t('handoff.none'),
+                    secondary: selectedEntry.handoff ? selectedEntry.handoff.preview : t('handoff.noneHint'),
                     tag: h(
                       'button',
                       {

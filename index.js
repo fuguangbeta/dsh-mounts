@@ -94,6 +94,29 @@ function fileSize(file) {
     return 0
   }
 }
+
+function fileMtime(file) {
+  try {
+    return statSync(file).mtime.toISOString()
+  } catch {
+    return ''
+  }
+}
+
+function localDateTime(date = new Date()) {
+  const pad = (value) => String(value).padStart(2, '0')
+  return (
+    date.getFullYear() +
+    '-' +
+    pad(date.getMonth() + 1) +
+    '-' +
+    pad(date.getDate()) +
+    ' ' +
+    pad(date.getHours()) +
+    ':' +
+    pad(date.getMinutes())
+  )
+}
 /** Cap a text value and mark the cut with an ellipsis, so the UI never shows a broken sentence. */
 function capText(value, max) {
   const text = String(value || '').trim()
@@ -467,21 +490,51 @@ function readTeamState(workspacePath) {
 }
 
 /** A small, explicit handoff note lives at `<workspace>/.dsh-mounts/handoff.md`. */
+function handoffAgeDays(mtime) {
+  const time = new Date(mtime).getTime()
+  if (!Number.isFinite(time)) return 0
+  return Math.max(0, Math.floor((Date.now() - time) / 86400000))
+}
+
+function handoffAgeText(mtime) {
+  if (!mtime) return ''
+  const time = new Date(mtime).getTime()
+  if (!Number.isFinite(time)) return ''
+  const minutes = Math.max(0, Math.floor((Date.now() - time) / 60000))
+  if (minutes < 1) return '刚刚'
+  if (minutes < 60) return minutes + ' 分钟前'
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return hours + ' 小时前'
+  return Math.floor(hours / 24) + ' 天前'
+}
+
+function handoffPreview(text) {
+  const lines = String(text || '')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+  const quoted = lines.find((line) => /^>\s*\S/.test(line))
+  const plain = lines.find((line) => !/^#{1,6}\s/.test(line) && !/^[-*_]{3,}$/.test(line))
+  const heading = lines.find((line) => /^#{1,6}\s/.test(line))
+  const textLine = quoted
+    ? quoted.replace(/^>\s*/, '')
+    : plain
+      ? plain.replace(/^([-*+]|\d+\.)\s+/, '')
+      : heading || ''
+  const summary = textLine.replace(/^摘要\s*[:：]\s*/, '')
+  return capText(summary || textLine, 160)
+}
+
 function readHandoff(workspacePath) {
   for (const relative of [path.join('.dsh-mounts', 'handoff.md'), path.join('.dsh', 'handoff.md')]) {
     const file = path.join(workspacePath, relative)
     if (!isFile(file)) continue
     const text = readText(file) || ''
-    const preview = text
-      .split('\n')
-      .map((line) => line.trim())
-      .filter(Boolean)
-      .slice(0, 2)
-      .join(' / ')
     return {
       path: file,
       bytes: fileSize(file),
-      preview: capText(preview, 160),
+      mtime: fileMtime(file),
+      preview: handoffPreview(text),
       text: text.length > 20000 ? text.slice(0, 20000) : text,
     }
   }
@@ -495,19 +548,24 @@ function buildBrief(entry, context) {
   lines.push('')
   lines.push('- 工作区：' + entry.name)
   lines.push('- 路径：' + entry.path)
-  lines.push('- 生成：' + new Date().toISOString().slice(0, 16).replace('T', ' '))
+  lines.push('- 生成：' + localDateTime())
+  const selectedPreset = context.registry.selectedDefault || context.registry.default || '?'
+  lines.push('')
+  lines.push('## 当前预设')
+  lines.push('- 选中：' + selectedPreset + '；默认：' + (context.registry.default || '?') + '（实际生效见文末）')
+  lines.push('- 自定义：' + (context.presets.length ? context.presets.map((preset) => preset.id).join('、') : '无'))
   lines.push('')
   lines.push('## 全局规则')
   lines.push(
     context.globalRules && context.globalRules.exists
-      ? '- `~/.dsh/AGENTS.md`：' + (context.globalRules.sections || []).length + ' 节，' + context.globalRules.bytes + ' 字节'
+      ? '- `~/.dsh/AGENTS.md`：' + (context.globalRules.sections || []).length + ' 节'
       : '- 无',
   )
   lines.push('')
   lines.push('## 项目规则（自动注入）')
   if (entry.rules.length) {
     for (const rule of entry.rules) {
-      lines.push('- ' + rule.file + '：' + (rule.sections || []).length + ' 节，' + rule.bytes + ' 字节')
+      lines.push('- ' + rule.file + '：' + (rule.sections || []).length + ' 节')
     }
   } else {
     lines.push('- 无')
@@ -515,13 +573,19 @@ function buildBrief(entry, context) {
   lines.push('')
   lines.push('## 记忆库（Markdown，非自动注入）')
   if (entry.memory.count) {
+    if (entry.memory.dirs && entry.memory.dirs.length) lines.push('- 目录：' + entry.memory.dirs.join('；'))
     lines.push(
       '- 共 ' + entry.memory.count + ' 个文件' + (entry.memory.folded ? '（合并同名 ' + entry.memory.folded + ' 个）' : '') + '：',
     )
-    for (const file of entry.memory.files.slice(0, 12)) {
-      lines.push('  - ' + file.name + '（' + file.bytes + ' B，' + String(file.mtime).slice(0, 10) + '）')
+    const shown = entry.memory.files.slice(0, 20)
+    for (const file of shown) {
+      const large = file.bytes >= 64 * 1024 ? '，' + file.bytes + ' B' : ''
+      lines.push('  - ' + file.name + '（' + localDateTime(new Date(file.mtime)).slice(0, 10) + large + '）')
     }
-    if (entry.memory.files.length > 12) lines.push('  - …其余 ' + (entry.memory.files.length - 12) + ' 个')
+    if (entry.memory.files.length > shown.length) {
+      const rest = entry.memory.files.slice(shown.length).map((file) => file.name)
+      lines.push('  - …其余 ' + rest.length + ' 个：' + rest.join('、'))
+    }
   } else {
     lines.push('- 无')
   }
@@ -534,19 +598,28 @@ function buildBrief(entry, context) {
   lines.push(
     '- 本项目：' + workspaceSkills.length + ' 个' + (workspaceSkills.length ? '：' + workspaceSkills.slice(0, 8).map((skill) => skill.name).join('、') : ''),
   )
-  lines.push('- 全局：' + globalSkills.length + ' 个')
+  lines.push('- 全局（目录）：' + globalSkills.length + ' 个（仅 ~/.dsh/skills；文末「生效」含内置/插件/运行时）')
   lines.push('')
-  lines.push('## MCP 服务器')
-  if (context.mcp.length) {
-    for (const server of context.mcp) {
+  const currentMcp =
+    selectedPreset && selectedPreset !== '?'
+      ? context.mcp.filter((server) => !server.presetId || server.presetId === selectedPreset)
+      : context.mcp
+  const otherMcp =
+    selectedPreset && selectedPreset !== '?'
+      ? context.mcp.filter((server) => server.presetId && server.presetId !== selectedPreset)
+      : []
+  lines.push('## 预设 MCP')
+  if (currentMcp.length) {
+    for (const server of currentMcp) {
       lines.push('- ' + server.server + '（' + server.transport + '）' + (server.presetId ? ' · 预设 ' + server.presetId : ''))
     }
   } else {
     lines.push('- 无')
   }
+  if (otherMcp.length) lines.push('- 其他预设：' + otherMcp.length + ' 个（未列）')
   if (entry.projectMcp && entry.projectMcp.length) {
     lines.push('')
-    lines.push('## 本项目 MCP')
+    lines.push('## 项目 MCP')
     for (const server of entry.projectMcp) {
       lines.push(
         '- ' +
@@ -559,11 +632,6 @@ function buildBrief(entry, context) {
       )
     }
   }
-  lines.push('')
-  lines.push('## Agent 预设')
-  lines.push('- 默认：' + (context.registry.default || '?') + '；选中：' + (context.registry.selectedDefault || '?'))
-  lines.push('- 自定义：' + (context.presets.length ? context.presets.map((preset) => preset.id).join('、') : '无'))
-  lines.push('- 内置：' + BUILTIN_PRESETS.join('、'))
   if (entry.team) {
     lines.push('')
     lines.push('## 团队（dsh-agent-teams）')
@@ -578,11 +646,24 @@ function buildBrief(entry, context) {
   }
   lines.push('')
   lines.push('## 最近交接')
-  lines.push(entry.handoff ? '- ' + entry.handoff.path + '：' + entry.handoff.preview : '- 无')
+  if (entry.handoff) {
+    const when = entry.handoff.mtime ? localDateTime(new Date(entry.handoff.mtime)) : ''
+    const age = handoffAgeText(entry.handoff.mtime)
+    const stale = handoffAgeDays(entry.handoff.mtime) >= 7 ? ' ⚠ 已超过 7 天' : ''
+    const meta = [when, age].filter(Boolean).join('，') + stale
+    lines.push('- ' + entry.handoff.path + (meta ? '（' + meta + '）' : '') + '：' + (entry.handoff.preview || '（无摘要）'))
+  } else {
+    lines.push('- 无（写入位置：' + path.join(entry.path, '.dsh-mounts', 'handoff.md') + '）')
+  }
   lines.push('')
-  lines.push('## 已接入的记忆 / 协作引擎')
-  for (const engine of context.engines) {
-    lines.push('- ' + engine.label + '：' + (engine.installed ? '已安装' : '未安装'))
+  lines.push('## 记忆 / 协作引擎')
+  const installedEngines = context.engines.filter((engine) => engine.installed)
+  if (!installedEngines.length) {
+    lines.push('- 均未安装（' + context.engines.map((engine) => engine.label).join('、') + '）')
+  } else {
+    for (const engine of context.engines) {
+      lines.push('- ' + engine.label + '：' + (engine.installed ? '已安装' : '未安装'))
+    }
   }
   return lines.join('\n')
 }
@@ -757,27 +838,27 @@ function effectiveSection(effective, scopeLabel) {
   const lines = ['', '## 实际生效（' + (scopeLabel || 'Host 视角') + '）']
   if (effective.agent.preset) lines.push('- Agent 预设：' + effective.agent.preset)
   lines.push(
-    '- 技能：' +
+    '- 技能：生效 ' +
       effective.skills.length +
-      ' 个（内置 ' +
+      '（内置 ' +
       builtin +
-      '，项目 ' +
+      ' / 项目 ' +
       project +
-      '，用户 ' +
+      ' / 用户 ' +
       user +
-      (effective.shadowed.length ? '；未生效/被遮蔽 ' + effective.shadowed.length : '') +
-      '）',
+      '）' +
+      (effective.shadowed.length ? '；另有被遮蔽 ' + effective.shadowed.length + '（不计入）' : ''),
   )
-  lines.push(
-    '- 工具：' +
-      effective.tools.total +
-      ' 个（MCP ' +
-      effective.tools.mcp +
-      (effective.tools.servers.length
-        ? '：' + effective.tools.servers.slice(0, 6).map((server) => server.server + ' ' + server.count).join('、')
-        : '') +
-      '）',
-  )
+  let toolLine = '- 工具：' + effective.tools.total + ' 个；MCP 工具 ' + effective.tools.mcp
+  if (effective.tools.servers.length) {
+    toolLine +=
+      '；MCP 服务器：' +
+      effective.tools.servers
+        .slice(0, 6)
+        .map((server) => server.server + ' ' + server.count)
+        .join('、')
+  }
+  lines.push(toolLine)
   return '\n' + lines.join('\n')
 }
 
@@ -1130,7 +1211,7 @@ export function apply(ctx, config) {
       const effective = await effectiveView(ctx, briefPath, effectiveAgent, snapshot.skills)
       if (effective) {
         snapshot.effective = effective
-        const label = agent ? '当前会话' : effective.scope === 'catalog' ? '目录级' : '会话'
+        const label = agent ? '当前会话' : effective.scope === 'catalog' ? '目录级' : '该工作区会话'
         const extra = effectiveSection(effective, label)
         if (extra) {
           snapshot.brief += extra
@@ -1226,7 +1307,15 @@ export function apply(ctx, config) {
       }
       const cwd = defaultCwd()
       const requestUrl = new URL(req.url || '/', 'http://127.0.0.1')
-      const selectedWorkspace = resolveWorkspace(requestUrl.searchParams.get('workspace'))
+      const requestedWorkspace = String(requestUrl.searchParams.get('workspace') || '').trim()
+      const selectedWorkspace = resolveWorkspace(requestedWorkspace)
+      if (requestedWorkspace && !selectedWorkspace) {
+        res.statusCode = 404
+        res.setHeader('content-type', 'application/json; charset=utf-8')
+        res.setHeader('cache-control', 'no-store')
+        res.end(JSON.stringify({ ok: false, error: 'workspace not found', workspace: requestedWorkspace }))
+        return
+      }
       const body = JSON.stringify(await buildSnapshot(cwd, null, selectedWorkspace))
       res.statusCode = 200
       res.setHeader('content-type', 'application/json; charset=utf-8')
@@ -1248,6 +1337,52 @@ export function apply(ctx, config) {
     }
   })
 
+  // One short handoff hint per new agent. This is metadata only: the agent
+  // still reads the file itself, and nothing is injected when no handoff exists.
+  // Handoff auto-hint: one short inbox message per new agent. `agent.inject`
+  // expects a complete UserMessage; omitting `role` produces an untyped
+  // message that breaks the first request (seen as TRANSPORT on 2026-11-06).
+  const hintedAgents = new WeakSet()
+  ctx.effect(() =>
+    ctx.on('agent/created', ({ agent }) => {
+      try {
+        if (!agent || hintedAgents.has(agent)) return
+        const header = agent.session && agent.session.header
+        const cwd = header && header.cwd
+        if (!cwd || header.origin === 'subagent') return
+        const handoff = readHandoff(cwd)
+        if (!handoff || !handoff.bytes) return
+        const days = handoffAgeDays(handoff.mtime)
+        const stale = days >= 7 ? '⚠ 交接已 ' + days + ' 天未更新；' : ''
+        const meta = handoff.mtime ? localDateTime(new Date(handoff.mtime)) : ''
+        const preview = handoff.preview
+          ? '；摘要：' + capText(handoff.preview, 80).replace(/[。！？!?]+$/, '')
+          : ''
+        hintedAgents.add(agent)
+        const result = agent.inject({
+          role: 'user',
+          content: [
+            {
+              type: 'text',
+              text:
+                '[dsh-mounts] ' +
+                stale +
+                '项目交接：' +
+                handoff.path +
+                (meta ? '（' + meta + '）' : '') +
+                preview +
+                '。开工前先 read 它；这里只是创建时快照，不是交接正文。',
+            },
+          ],
+          source: { kind: 'dsh-mounts' },
+        })
+        if (result && typeof result.catch === 'function') result.catch(() => {})
+      } catch {
+        /* a hint must never block agent creation */
+      }
+    }),
+  )
+
   // One read-only tool. Without it the model never learns that a workspace has
   // memory banks, where they live, or what this project mounts. The schema is
   // deliberately small; there is no write path.
@@ -1262,7 +1397,7 @@ export function apply(ctx, config) {
       try {
         return tools.register({
           name: 'project_context',
-          description: '查看当前项目的挂载上下文：规则、记忆库、技能、MCP、团队与最近交接。只读。',
+          description: '查看项目挂载与最近交接。新会话、接手项目或开工前先调用；只读。',
           parameters: {
             workspace: {
               type: 'string',
@@ -1288,14 +1423,19 @@ export function apply(ctx, config) {
               cwd = ''
             }
             if (requested) {
-              if (path.isAbsolute(requested) && isDirectory(requested)) {
-                cwd = path.resolve(requested)
-              } else {
-                const hit = workspacePaths().find(
-                  (workspacePath) => path.basename(workspacePath).toLowerCase() === requested.toLowerCase(),
-                )
-                if (hit) cwd = hit
+              const resolved = resolveWorkspace(requested)
+              if (!resolved) {
+                return {
+                  text:
+                    '# 项目上下文简报\n\n- 未找到工作区：' +
+                    requested +
+                    '\n- 当前工作区：' +
+                    (cwd || defaultCwd()) +
+                    '\n\n请检查名称或绝对路径；未回退到其他工作区。',
+                  workspace: null,
+                }
               }
+              cwd = resolved
             }
             if (!cwd || !isDirectory(cwd)) cwd = defaultCwd()
             let agent = exec && exec.agent

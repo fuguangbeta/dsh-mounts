@@ -8,8 +8,8 @@
 
 ## 关于本工具 · *About This Tool*
 
-dsh-mounts 是以只读为主的侧栏面板，将当前 profile 的挂载内容归为五类，同页呈现；顶部另有一份可复制的项目简报，技能与 MCP 的每一行带一个生效状态点（绿=生效，红=未生效）。唯一写入是工作区的 `.dsh-mounts/handoff.md`（显式保存交接）。
-面板只注册一个只读工具 `project_context`（模型调用时才返回简报），除交接保存外不写文件，不发起出站请求。安装本身不改变模型所见的提示词。
+dsh-mounts 是以只读为主的侧栏面板，将当前 profile 归为全局 / 工作区两棵树，每棵下分项目简报、记忆、技能、MCP；顶部另有一份可复制的项目简报，技能与 MCP 的每一行带一个生效状态点（绿=生效，红=未生效）。唯一写入是工作区的 `.dsh-mounts/handoff.md`（显式保存交接）。
+面板只注册一个只读工具 `project_context`（模型调用时才返回简报），除交接保存外不写文件，不发起出站请求。安装本身不改变提示词。
 
 面板的用途限于确认配置内容与 Host 注册表的口径，不判定进程健康：补丁中存在 MCP 行，不代表对应进程正在运行；
 技能出现在列表中，不代表本轮已加载。
@@ -107,7 +107,14 @@ Workspace MCP reads `<ws>/.dsh/mcp.json`; `<ws>/.mcp.json` is shown as external 
 Dots use the selected workspace: with a live session there they use its registry, otherwise the catalog (MCP tool status is gray).
 
 工作区 → 项目简报 → 交接 可编辑，保存到 `.dsh-mounts/handoff.md`（≤20 KB）；旧 `.dsh/handoff.md` 仍可读取。
+`project_context` 是只读工具：新会话、接手项目或开工前调用一次即可，不要每轮调用。
+采用交接的项目可在自己的 `AGENTS.local.md` 加一行约定：若 `.dsh-mounts/handoff.md` 存在，开工先读它。
+新会话会自动注入一行交接提示（路径 + 摘要），不含交接正文。
+
 The Workspace → Project brief → Handoff row is editable; saves go to `.dsh-mounts/handoff.md` (≤20 KB). A legacy `.dsh/handoff.md` is still read.
+`project_context` is read-only: call it once at the start of a session or when taking over a project; do not call it every turn.
+Projects that adopt handoff can add one line to their own `AGENTS.local.md`: if `.dsh-mounts/handoff.md` exists, read it first.
+A new session automatically receives one handoff hint line (path + summary); the handoff body is not included.
 
 ---
 
@@ -173,7 +180,7 @@ so the module is imported again.
   其余返回 403，用于阻断 DNS rebinding。
 - `/api` 只接受 GET 与 HEAD，其余返回 405；`/handoff` 只接受 POST。响应带 `Cache-Control: no-store`。
 - 可选 `workspace` 查询参数（名称或绝对路径）用于选择展示的工作区；只读，不影响其他会话。
-- 不返回文件内容：记忆库仅 `stat`，技能仅取 frontmatter 的 description。
+- 不返回记忆正文：记忆库仅 `stat`，技能仅取 frontmatter 的 description；交接只返回路径、mtime 与摘要。
 
 「打开」不新建端点，使用 DSH 现有的 Session Remote，路径由 Host 侧复核。
 
@@ -184,8 +191,8 @@ so the module is imported again.
   otherwise, which blocks DNS rebinding.
 - `/api` accepts only GET and HEAD; `/handoff` accepts only POST. Responses carry `Cache-Control: no-store`.
 - It accepts an optional `workspace` query parameter (name or absolute path) to select the displayed workspace; read-only, and it does not affect other sessions.
-- It returns no file contents: memory libraries are only `stat`-ed and skills contribute the
-  frontmatter description.
+- It returns no memory body: memory libraries are only `stat`-ed and skills contribute the
+  frontmatter description; handoff returns only path, mtime, and a first-line summary.
 
 The "Open" action creates no endpoint; it uses DSH's existing Session Remote and the path is
 re-validated on the Host side.

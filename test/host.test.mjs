@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { EventEmitter } from 'node:events'
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, utimesSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
@@ -10,6 +10,9 @@ const home = path.join(root, 'home')
 const profile = path.join(home, 'profiles', 'test')
 const ws = path.join(root, 'workspace')
 const wsExternal = path.join(root, 'workspace-external')
+const wsMany = path.join(root, 'workspace-many')
+const wsHint = path.join(root, 'workspace-hint')
+const wsBytes = path.join(root, 'workspace-bytes')
 mkdirSync(path.join(profile), { recursive: true })
 process.env.DSH_HOME = home
 process.env.DSH_PROFILE = 'test'
@@ -32,8 +35,17 @@ write(
   JSON.stringify({ mcpServers: { external: { command: 'npx', args: ['server'] } } }),
 )
 write(path.join(wsExternal, 'mirror-memory', 'main', 'MEMORY.md'), '# Mirror\n')
+for (let index = 1; index <= 22; index += 1) {
+  const name = 'm' + String(index).padStart(2, '0') + '.md'
+  write(path.join(wsMany, 'memory', name), '# Many\n')
+}
+const bigMemoryBytes = 70 * 1024
+write(path.join(wsBytes, 'memory', 'big.md'), 'x'.repeat(bigMemoryBytes))
+write(path.join(wsBytes, 'memory', 'small.md'), '# Small\n')
+write(path.join(wsHint, '.dsh-mounts', 'handoff.md'), '# Hint\n> 摘要：summary line。\nnext step\nsecret-body\n')
 
 const routes = new Map()
+const listeners = new Map()
 const tools = []
 const ctx = {
   get(name) {
@@ -42,6 +54,8 @@ const ctx = {
         list: () => [
           { path: ws, updatedAt: '2026-01-02T00:00:00Z' },
           { path: wsExternal, updatedAt: '2026-01-01T00:00:00Z' },
+          { path: wsMany, updatedAt: '2025-12-31T00:00:00Z' },
+          { path: wsBytes, updatedAt: '2025-12-30T00:00:00Z' },
         ],
       }
     }
@@ -71,6 +85,10 @@ const ctx = {
   },
   effect(fn) {
     fn()
+  },
+  on(event, listener) {
+    listeners.set(event, listener)
+    return () => listeners.delete(event)
   },
   webServer: {
     register({ path: routePath, handler }) {
@@ -123,6 +141,13 @@ test('snapshot reads standard memory and project MCP', async () => {
   assert.equal(data.effective.scope, 'catalog')
   assert.equal(data.effective.tools.mcp, 1)
   assert.equal(data.briefWorkspace, 'workspace')
+  assert.match(data.brief, /## 预设 MCP/)
+  assert.match(data.brief, /## 最近交接/)
+  assert.match(data.brief, /写入位置/)
+  assert.match(data.brief, /目录：/)
+  assert.match(data.brief, /技能：生效/)
+  assert.match(data.brief, /MCP 工具/)
+  assert.match(data.brief, /- 生成：\d{4}-\d{2}-\d{2} \d{2}:\d{2}/)
 })
 
 test('external .mcp.json is marked external and mirrors are not memory', async () => {
@@ -134,6 +159,81 @@ test('external .mcp.json is marked external and mirrors are not memory', async (
   assert.equal(entry.memory.count, 0)
   assert.equal(entry.projectMcp[0].sourceKind, 'external')
   assert.equal(data.briefWorkspace, 'workspace-external')
+  assert.match(data.brief, /## 项目 MCP/)
+})
+
+test('unknown workspace is rejected instead of falling back', async () => {
+  const response = await call(api(), { url: '/dsh-mounts/api?workspace=workspace-typo' })
+  assert.equal(response.status, 404)
+  assert.match(response.body, /workspace not found/)
+})
+
+test('memory list keeps names beyond the display cap', async () => {
+  const response = await call(api(), {
+    url: '/dsh-mounts/api?workspace=workspace-many',
+  })
+  const data = json(response)
+  const entry = data.workspaces.find((item) => item.path === wsMany)
+  assert.equal(entry.memory.count, 22)
+  assert.match(data.brief, /其余 2 个：m21\.md、m22\.md/)
+})
+
+test('brief marks only large memory files with their byte size', async () => {
+  const response = await call(api(), { url: '/dsh-mounts/api?workspace=workspace-bytes' })
+  const data = json(response)
+  assert.equal(data.briefWorkspace, 'workspace-bytes')
+  const entry = data.workspaces.find((item) => item.path === wsBytes)
+  assert.equal(entry.memory.count, 2)
+  const big = entry.memory.files.find((item) => item.name === 'big.md')
+  const small = entry.memory.files.find((item) => item.name === 'small.md')
+  assert.equal(big.bytes, bigMemoryBytes)
+  assert.match(data.brief, /- big\.md（\d{4}-\d{2}-\d{2}，71680 B）/)
+  assert.match(data.brief, /- small\.md（\d{4}-\d{2}-\d{2}）/)
+  assert.doesNotMatch(data.brief, /small\.md（[^）]*B/)
+})
+
+test('memory dates use the local calendar day', async () => {
+  const file = path.join(ws, 'memory', 'date-edge.md')
+  write(file, '# Date edge\n')
+  const localMidnight = new Date(2026, 0, 1, 0, 30)
+  utimesSync(file, localMidnight, localMidnight)
+
+  const data = json(await call(api()))
+  assert.match(data.brief, /date-edge\.md（2026-01-01）/)
+})
+
+test('agent/created injects a complete UserMessage', async () => {
+  const handler = listeners.get('agent/created')
+  assert.ok(handler)
+  const injected = []
+  const agent = {
+    session: { header: { cwd: wsHint } },
+    inject: (payload) => injected.push(payload),
+  }
+  await handler({ agent, source: 'startup' })
+  assert.equal(injected.length, 1)
+  assert.equal(injected[0].role, 'user')
+  assert.match(injected[0].content[0].text, /handoff\.md/)
+  assert.match(injected[0].content[0].text, /摘要：summary line/)
+  assert.doesNotMatch(injected[0].content[0].text, /摘要：摘要/)
+  assert.doesNotMatch(injected[0].content[0].text, /。。/)
+  assert.doesNotMatch(injected[0].content[0].text, /secret-body/)
+  await handler({ agent, source: 'resume' })
+  assert.equal(injected.length, 1)
+
+  const noHandoff = {
+    session: { header: { cwd: wsExternal } },
+    inject: (payload) => injected.push(payload),
+  }
+  await handler({ agent: noHandoff, source: 'startup' })
+  assert.equal(injected.length, 1)
+
+  const subagent = {
+    session: { header: { cwd: wsHint, origin: 'subagent' } },
+    inject: (payload) => injected.push(payload),
+  }
+  await handler({ agent: subagent, source: 'startup' })
+  assert.equal(injected.length, 1)
 })
 
 test('handoff POST writes .dsh-mounts/handoff.md and the snapshot reads it', async () => {
@@ -145,7 +245,8 @@ test('handoff POST writes .dsh-mounts/handoff.md and the snapshot reads it', asy
   assert.equal(readFileSync(path.join(ws, '.dsh-mounts', 'handoff.md'), 'utf8'), '# Handoff\nnext step')
   const data = json(await call(api()))
   const entry = data.workspaces.find((item) => item.path === ws)
-  assert.equal(entry.handoff.preview, '# Handoff / next step')
+  assert.equal(entry.handoff.preview, 'next step')
+  assert.ok(entry.handoff.mtime)
 })
 
 test('handoff rejects non-POST, unknown workspace, and oversized text', async () => {
@@ -170,4 +271,9 @@ test('project_context tool is registered and reads a workspace', async () => {
     { agent: { session: { header: { cwd: wsExternal } } }, signal: new AbortController().signal },
   )
   assert.match(output.text, /workspace-external/)
+  assert.match(output.text, /写入位置/)
+
+  const missing = await definition.execute({ workspace: 'workspace-typo' }, { signal: new AbortController().signal })
+  assert.match(missing.text, /未找到工作区/)
+  assert.doesNotMatch(missing.text, /## 记忆库/)
 })
