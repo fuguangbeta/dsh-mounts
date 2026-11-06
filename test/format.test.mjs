@@ -97,3 +97,30 @@ test('handoffTemplate uses the active dictionary', () => {
   assert.match(text, /^## Open issues$/m)
   assert.match(text, /^## Next step$/m)
 })
+
+const skillItems = [
+  { name: 'Gamma', source: 'builtin', path: 'D:\\proj\\.dsh\\skills\\gamma\\SKILL.md', desc: 'noise' },
+  { name: 'alpha', source: 'workspace', path: 'D:\\proj\\.dsh\\skills\\alpha\\SKILL.md' },
+  { name: 'MemWise', source: 'user', path: 'C:\\users\\me\\.dsh\\skills\\memwise\\SKILL.md' },
+]
+
+test('filterSkills returns everything in order for a blank query', () => {
+  assert.equal(helpers.filterSkills(skillItems, ''), skillItems)
+  assert.equal(helpers.filterSkills(skillItems, '   '), skillItems)
+  assert.equal(helpers.filterSkills(skillItems, null), skillItems)
+})
+
+test('filterSkills matches names case-insensitively', () => {
+  assert.deepEqual(helpers.filterSkills(skillItems, 'ALPHA'), [skillItems[1]])
+  assert.deepEqual(helpers.filterSkills(skillItems, 'mem'), [skillItems[2]])
+})
+
+test('filterSkills matches source paths', () => {
+  assert.deepEqual(helpers.filterSkills(skillItems, 'gamma\\skill'), [skillItems[0]])
+  assert.deepEqual(helpers.filterSkills(skillItems, 'C:\\USERS\\ME'), [skillItems[2]])
+})
+
+test('filterSkills ignores descriptions and returns an empty list when nothing matches', () => {
+  assert.deepEqual(helpers.filterSkills(skillItems, 'noise'), [])
+  assert.deepEqual(helpers.filterSkills(skillItems, 'zzz'), [])
+})

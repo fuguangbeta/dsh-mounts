@@ -112,6 +112,8 @@ window.__ModuleLoader__.load({
       'skills.workspace': '工作区技能',
       'skills.globalEmpty': '未发现全局技能。',
       'skills.workspaceEmpty': '未发现工作区技能。',
+      'skills.filter': '筛选技能',
+      'skills.noMatch': '无匹配技能',
       'mcp.empty': '未发现 MCP 服务器行。',
       'common.generated': '生成于',
     }
@@ -207,6 +209,8 @@ window.__ModuleLoader__.load({
       'skills.workspace': 'Workspace skills',
       'skills.globalEmpty': 'No global skills found.',
       'skills.workspaceEmpty': 'No workspace skills found.',
+      'skills.filter': 'Filter skills',
+      'skills.noMatch': 'No matching skills',
       'mcp.empty': 'No MCP server rows found.',
       'common.generated': 'Generated',
     }
@@ -254,6 +258,12 @@ window.__ModuleLoader__.load({
 .dmp-mem-count{font-variant-numeric:tabular-nums;}
 .dmp-mem-latest{margin-left:auto;font-variant-numeric:tabular-nums;white-space:nowrap;}
 .dmp-mem-body{border-top:1px solid var(--dsw-alias-border-l1);}
+.dmp-group-head{display:flex;align-items:center;gap:8px;}
+.dmp-group-head .dmp-mem-head{flex:1;min-width:0;width:auto;}
+.dmp-skill-hits{flex:none;font-size:11px;color:var(--dsw-alias-label-secondary);font-variant-numeric:tabular-nums;white-space:nowrap;}
+.dmp-skill-filter{flex:none;width:150px;box-sizing:border-box;border:1px solid var(--dsw-alias-border-l1);border-radius:8px;background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-primary);font:inherit;font-size:11px;line-height:18px;padding:3px 8px;}
+.dmp-skill-filter:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:2px;}
+.dmp-skill-filter::placeholder{color:var(--dsw-alias-label-secondary);}
 .dmp-file{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:12px;padding-block:3px;padding-right:16px;font-size:11.5px;line-height:1.6;}
 .dmp-file.dmp-rule-row{grid-template-columns:minmax(0,1fr) auto auto auto;gap:12px;padding-block:3px;padding-right:16px;font-size:11.5px;line-height:1.6;}
 .dmp-file-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--dsw-alias-label-primary);}
@@ -362,6 +372,17 @@ window.__ModuleLoader__.load({
       ].join('\n')
     }
 
+    function filterSkills(items, query) {
+      const needle = String(query == null ? '' : query).trim().toLowerCase()
+      if (!needle) return items
+      return items.filter((item) => {
+        const name = String((item && item.name) || '').toLowerCase()
+        const source = String((item && item.source) || '').toLowerCase()
+        const where = String((item && item.path) || '').toLowerCase()
+        return name.includes(needle) || source.includes(needle) || where.includes(needle)
+      })
+    }
+
     function shortTime(iso) {
       const date = new Date(iso)
       if (Number.isNaN(date.getTime())) return ''
@@ -441,22 +462,23 @@ window.__ModuleLoader__.load({
 
     function Group(props) {
       const bodyId = 'dmp-group-' + props.id
+      const head = h(
+        'button',
+        {
+          type: 'button',
+          className: 'dmp-mem-head dmp-indent-' + (props.depth || 1),
+          'aria-expanded': props.open,
+          'aria-controls': bodyId,
+          onClick: props.onToggle,
+        },
+        h('span', { className: 'dmp-arrow' + (props.open ? ' is-open' : ''), 'aria-hidden': true }, '▸'),
+        h('b', null, props.label),
+        props.count != null ? h('span', { className: 'dmp-mem-count' }, props.count) : null,
+      )
       return h(
         'div',
         { className: 'dmp-group' },
-        h(
-          'button',
-          {
-            type: 'button',
-            className: 'dmp-mem-head dmp-indent-' + (props.depth || 1),
-            'aria-expanded': props.open,
-            'aria-controls': bodyId,
-            onClick: props.onToggle,
-          },
-          h('span', { className: 'dmp-arrow' + (props.open ? ' is-open' : ''), 'aria-hidden': true }, '▸'),
-          h('b', null, props.label),
-          props.count != null ? h('span', { className: 'dmp-mem-count' }, props.count) : null,
-        ),
+        props.extra ? h('div', { className: 'dmp-group-head' }, head, props.extra) : head,
         h(
           'div',
           {
@@ -702,7 +724,7 @@ window.__ModuleLoader__.load({
     }
 
     if (typeof globalThis !== 'undefined' && globalThis.__DSH_MOUNTS_TEST__) {
-      globalThis.__DSH_MOUNTS_TEST__.helpers = { shortDate, bytes, mcpCountText, handoffTemplate }
+      globalThis.__DSH_MOUNTS_TEST__.helpers = { shortDate, bytes, mcpCountText, handoffTemplate, filterSkills }
     }
 
     return {
@@ -836,6 +858,7 @@ window.__ModuleLoader__.load({
           const [canOpen, setCanOpen] = React.useState(false)
           const [copyState, setCopyState] = React.useState('idle')
           const copyTimer = React.useRef(null)
+          const [skillQuery, setSkillQuery] = React.useState('')
           const data = inventory.data
 
           // Detect the opener after mount, never during apply: touching the Remote
@@ -1055,6 +1078,22 @@ window.__ModuleLoader__.load({
                     (skill.workspacePath === selectedEntry.path || skill.workspace === selectedEntry.name),
                 )
               : []
+            const filteredGlobalSkills = filterSkills(globalSkills, skillQuery)
+            const filteredWorkspaceSkills = filterSkills(workspaceSkills, skillQuery)
+            const skillFilterExtra = (hits, total) => [
+              skillQuery
+                ? h('span', { key: 'skill-hits', className: 'dmp-skill-hits' }, hits + ' / ' + total)
+                : null,
+              h('input', {
+                key: 'skill-filter',
+                className: 'dmp-skill-filter',
+                type: 'search',
+                value: skillQuery,
+                placeholder: t('skills.filter'),
+                'aria-label': t('skills.filter'),
+                onChange: (event) => setSkillQuery(event.target.value),
+              }),
+            ]
             const globalMemory =
               data.globalMemory && Array.isArray(data.globalMemory.files)
                 ? data.globalMemory
@@ -1211,7 +1250,7 @@ window.__ModuleLoader__.load({
                 ],
               })
 
-            const section = (id, label, count, depth, children) =>
+            const section = (id, label, count, depth, children, extra) =>
               h(
                 Group,
                 {
@@ -1222,6 +1261,7 @@ window.__ModuleLoader__.load({
                   depth,
                   open: Boolean(openSections[id]),
                   onToggle: () => toggleSection(id),
+                  extra,
                 },
                 children,
               )
@@ -1413,12 +1453,13 @@ window.__ModuleLoader__.load({
                 t('section.skills'),
                 globalSkills.length,
                 1,
-                globalSkills.length
+                filteredGlobalSkills.length
                   ? [
-                      ...globalSkills.map((skill) => skillRow(skill, 2)),
+                      ...filteredGlobalSkills.map((skill) => skillRow(skill, 2)),
                       warningLines(warningsFor('extraSkillRoots'), 'global-skill-warning-'),
                     ]
-                  : [emptyLine(t('skills.globalEmpty'), 2)],
+                  : [emptyLine(skillQuery ? t('skills.noMatch') : t('skills.globalEmpty'), 2)],
+                skillFilterExtra(filteredGlobalSkills.length, globalSkills.length),
               ),
               section(
                 'global:mcp',
@@ -1469,9 +1510,10 @@ window.__ModuleLoader__.load({
                     t('section.skills'),
                     workspaceSkills.length,
                     1,
-                    workspaceSkills.length
-                      ? workspaceSkills.map((skill) => skillRow(skill, 2))
-                      : [emptyLine(t('skills.workspaceEmpty'), 2)],
+                    filteredWorkspaceSkills.length
+                      ? filteredWorkspaceSkills.map((skill) => skillRow(skill, 2))
+                      : [emptyLine(skillQuery ? t('skills.noMatch') : t('skills.workspaceEmpty'), 2)],
+                    skillFilterExtra(filteredWorkspaceSkills.length, workspaceSkills.length),
                   ),
                   section(
                     'ws:mcp',
