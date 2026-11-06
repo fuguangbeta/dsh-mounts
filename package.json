@@ -1,6 +1,6 @@
 {
   "name": "dsh-mounts",
-  "version": "1.1.2",
+  "version": "1.2.0",
   "private": true,
   "description": "DSH sidebar panel: a Global/Workspace tree of project brief, memory, skills, and MCP servers, with effective-status dots. The only write is a workspace handoff file.",
   "type": "module",
