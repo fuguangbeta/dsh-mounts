@@ -82,6 +82,8 @@ window.__ModuleLoader__.load({
       'mcp.configured': '配置',
       'mcp.externalHint': '.mcp.json 是外部格式，DSH 不会挂载；要挂载请用 .dsh/mcp.json。',
       'workspace.empty': '未注册工作区',
+      'picker.filter': '筛选工作区',
+      'picker.noMatch': '无匹配工作区',
       'brief.full': '完整简报',
       'brief.hint': '规则、记忆、技能、MCP、团队与交接',
       'label.sections': '节',
@@ -179,6 +181,8 @@ window.__ModuleLoader__.load({
       'mcp.configured': 'configured',
       'mcp.externalHint': '.mcp.json is an external format; DSH does not mount it. Use .dsh/mcp.json instead.',
       'workspace.empty': 'No registered workspace',
+      'picker.filter': 'Filter workspaces',
+      'picker.noMatch': 'No matching workspaces',
       'brief.full': 'Full brief',
       'brief.hint': 'Rules, memory, skills, MCP, team and handoff',
       'label.sections': 'sections',
@@ -320,6 +324,12 @@ window.__ModuleLoader__.load({
 .dmp-menu-option.is-selected{color:var(--dsw-alias-brand-primary);}
 .dmp-menu-name{font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .dmp-menu-path{font-size:10.5px;line-height:1.4;color:var(--dsw-alias-label-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.dmp-menu-filter{display:flex;align-items:center;gap:8px;padding:2px 4px 6px;}
+.dmp-menu-input{flex:1;min-width:0;box-sizing:border-box;border:1px solid var(--dsw-alias-border-l1);border-radius:8px;background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-primary);font:inherit;font-size:11px;line-height:18px;padding:3px 8px;}
+.dmp-menu-input:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:1px;}
+.dmp-menu-input::placeholder{color:var(--dsw-alias-label-secondary);}
+.dmp-filter-hits{flex:none;font-size:10.5px;color:var(--dsw-alias-label-secondary);font-variant-numeric:tabular-nums;white-space:nowrap;}
+.dmp-menu-empty{padding:8px 10px;font-size:11px;color:var(--dsw-alias-label-secondary);}
 @keyframes dmp-menu-in{from{opacity:0;transform:translateY(-5px) scale(.98);}to{opacity:1;transform:none;}}
 @keyframes dmp-option-in{from{opacity:0;transform:translateX(-3px);}to{opacity:1;transform:none;}}
 @keyframes dmp-press{0%{transform:scale(.97);}55%{transform:scale(1.015);}100%{transform:scale(1);}}
@@ -380,6 +390,16 @@ window.__ModuleLoader__.load({
         const source = String((item && item.source) || '').toLowerCase()
         const where = String((item && item.path) || '').toLowerCase()
         return name.includes(needle) || source.includes(needle) || where.includes(needle)
+      })
+    }
+
+    function filterWorkspaces(items, query) {
+      const needle = String(query == null ? '' : query).trim().toLowerCase()
+      if (!needle) return items
+      return items.filter((item) => {
+        const name = String((item && item.name) || '').toLowerCase()
+        const where = String((item && item.path) || '').toLowerCase()
+        return name.includes(needle) || where.includes(needle)
       })
     }
 
@@ -563,6 +583,12 @@ window.__ModuleLoader__.load({
       const triggerRef = React.useRef(null)
       const menuRef = React.useRef(null)
       const selected = props.workspaces.find((entry) => entry.name === props.value) || props.workspaces[0]
+      const [query, setQuery] = React.useState('')
+      const filtered = filterWorkspaces(props.workspaces, query)
+
+      React.useEffect(() => {
+        if (!open) setQuery('')
+      }, [open])
 
       React.useEffect(() => {
         if (!open) return undefined
@@ -608,7 +634,10 @@ window.__ModuleLoader__.load({
         const frame = requestAnimationFrame(() => {
           const menu = menuRef.current
           if (!menu) return
-          const target = menu.querySelector('[aria-selected="true"]') || menu.querySelector('.dmp-menu-option')
+          const target =
+            menu.querySelector('.dmp-menu-input') ||
+            menu.querySelector('[aria-selected="true"]') ||
+            menu.querySelector('.dmp-menu-option')
           if (target) target.focus()
         })
         return () => cancelAnimationFrame(frame)
@@ -645,27 +674,47 @@ window.__ModuleLoader__.load({
                 },
                 onKeyDown: onMenuKeyDown,
               },
-              props.workspaces.map((entry, index) =>
-                h(
-                  'button',
-                  {
-                    key: entry.name,
-                    type: 'button',
-                    role: 'option',
-                    'aria-selected': entry.name === props.value,
-                    className: 'dmp-menu-option' + (entry.name === props.value ? ' is-selected' : ''),
-                    style: { '--i': index },
-                    title: entry.path,
-                    onClick: () => {
-                      props.onChange(entry.name)
-                      setOpen(false)
-                      if (triggerRef.current) triggerRef.current.focus()
-                    },
+              h(
+                'div',
+                { className: 'dmp-menu-filter', key: 'filter' },
+                query
+                  ? h('span', { className: 'dmp-filter-hits' }, filtered.length + ' / ' + props.workspaces.length)
+                  : null,
+                h('input', {
+                  className: 'dmp-menu-input',
+                  type: 'search',
+                  value: query,
+                  placeholder: props.filterPlaceholder,
+                  'aria-label': props.filterPlaceholder,
+                  onChange: (event) => setQuery(event.target.value),
+                  onKeyDown: (event) => {
+                    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') event.stopPropagation()
                   },
-                  h('span', { className: 'dmp-menu-name' }, entry.name),
-                  h('span', { className: 'dmp-menu-path' }, entry.path),
-                ),
+                }),
               ),
+              filtered.length
+                ? filtered.map((entry, index) =>
+                    h(
+                      'button',
+                      {
+                        key: entry.name,
+                        type: 'button',
+                        role: 'option',
+                        'aria-selected': entry.name === props.value,
+                        className: 'dmp-menu-option' + (entry.name === props.value ? ' is-selected' : ''),
+                        style: { '--i': index },
+                        title: entry.path,
+                        onClick: () => {
+                          props.onChange(entry.name)
+                          setOpen(false)
+                          if (triggerRef.current) triggerRef.current.focus()
+                        },
+                      },
+                      h('span', { className: 'dmp-menu-name' }, entry.name),
+                      h('span', { className: 'dmp-menu-path' }, entry.path),
+                    ),
+                  )
+                : h('div', { className: 'dmp-menu-empty', key: 'empty' }, props.emptyText),
             )
           : null
 
@@ -724,7 +773,7 @@ window.__ModuleLoader__.load({
     }
 
     if (typeof globalThis !== 'undefined' && globalThis.__DSH_MOUNTS_TEST__) {
-      globalThis.__DSH_MOUNTS_TEST__.helpers = { shortDate, bytes, mcpCountText, handoffTemplate, filterSkills }
+      globalThis.__DSH_MOUNTS_TEST__.helpers = { shortDate, bytes, mcpCountText, handoffTemplate, filterSkills, filterWorkspaces }
     }
 
     return {
@@ -1603,6 +1652,8 @@ window.__ModuleLoader__.load({
                           value: selectedEntry.name,
                           onChange: pickWorkspace,
                           ariaLabel: t('root.workspace'),
+                          filterPlaceholder: t('picker.filter'),
+                          emptyText: t('picker.noMatch'),
                         })
                       : null,
                   open: Boolean(openBlocks.workspace),

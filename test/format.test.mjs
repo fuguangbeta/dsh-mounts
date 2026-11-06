@@ -124,3 +124,26 @@ test('filterSkills ignores descriptions and returns an empty list when nothing m
   assert.deepEqual(helpers.filterSkills(skillItems, 'noise'), [])
   assert.deepEqual(helpers.filterSkills(skillItems, 'zzz'), [])
 })
+
+const workspaceItems = [
+  { name: 'dsh-mounts', path: 'D:\\我的文件\\dsh-mounts' },
+  { name: 'memwise', path: 'D:\\我的文件\\memwise' },
+  { name: 'Other', path: 'D:\\work\\other' },
+]
+
+test('filterWorkspaces returns the same array for a blank query', () => {
+  assert.equal(helpers.filterWorkspaces(workspaceItems, ''), workspaceItems)
+  assert.equal(helpers.filterWorkspaces(workspaceItems, '   '), workspaceItems)
+})
+
+test('filterWorkspaces matches names case-insensitively', () => {
+  assert.deepEqual(helpers.filterWorkspaces(workspaceItems, 'MEMWISE'), [workspaceItems[1]])
+})
+
+test('filterWorkspaces matches path substrings', () => {
+  assert.deepEqual(helpers.filterWorkspaces(workspaceItems, 'work\\other'), [workspaceItems[2]])
+})
+
+test('filterWorkspaces returns an empty list when nothing matches', () => {
+  assert.deepEqual(helpers.filterWorkspaces(workspaceItems, 'zzz'), [])
+})
