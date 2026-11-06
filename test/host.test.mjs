@@ -43,6 +43,12 @@ const bigMemoryBytes = 70 * 1024
 write(path.join(wsBytes, 'memory', 'big.md'), 'x'.repeat(bigMemoryBytes))
 write(path.join(wsBytes, 'memory', 'small.md'), '# Small\n')
 write(path.join(wsHint, '.dsh-mounts', 'handoff.md'), '# Hint\n> 摘要：summary line。\nnext step\nsecret-body\n')
+const wsPreview = path.join(root, 'workspace-preview')
+write(path.join(wsPreview, '.dsh-mounts', 'handoff.md'), '# 交接\n\n> 读者：后来的人\n> 摘要：真实摘要\n\n正文\n')
+const wsFallback = path.join(root, 'workspace-fallback')
+write(path.join(wsFallback, '.dsh-mounts', 'handoff.md'), '# 交接\n\n> 读者：后来的人\n\n正文\n')
+const wsPeriod = path.join(root, 'workspace-period')
+write(path.join(wsPeriod, '.dsh-mounts', 'handoff.md'), '> 摘要：真实摘要。\n')
 
 const routes = new Map()
 const listeners = new Map()
@@ -98,7 +104,7 @@ const ctx = {
   },
 }
 
-const { apply } = await import('../index.js')
+const { apply, handoffPreview } = await import('../index.js')
 apply(ctx, {})
 
 function call(handler, { method = 'GET', url = '/dsh-mounts/api', body, headers } = {}) {
@@ -236,6 +242,44 @@ test('agent/created injects a complete UserMessage', async () => {
   assert.equal(injected.length, 1)
 })
 
+test('handoff preview prefers the 摘要 quote over the first quote', async () => {
+  const handler = listeners.get('agent/created')
+  const injected = []
+  const agent = {
+    session: { header: { cwd: wsPreview } },
+    inject: (payload) => injected.push(payload),
+  }
+  await handler({ agent, source: 'startup' })
+  assert.equal(injected.length, 1)
+  assert.match(injected[0].content[0].text, /摘要：真实摘要/)
+  assert.doesNotMatch(injected[0].content[0].text, /摘要：读者/)
+})
+
+test('handoff preview falls back to the first quote without a 摘要 marker', async () => {
+  const handler = listeners.get('agent/created')
+  const injected = []
+  const agent = {
+    session: { header: { cwd: wsFallback } },
+    inject: (payload) => injected.push(payload),
+  }
+  await handler({ agent, source: 'startup' })
+  assert.equal(injected.length, 1)
+  assert.match(injected[0].content[0].text, /摘要：读者：后来的人/)
+})
+
+test('handoff hint drops the trailing period of the summary', async () => {
+  const handler = listeners.get('agent/created')
+  const injected = []
+  const agent = {
+    session: { header: { cwd: wsPeriod } },
+    inject: (payload) => injected.push(payload),
+  }
+  await handler({ agent, source: 'startup' })
+  assert.equal(injected.length, 1)
+  assert.match(injected[0].content[0].text, /摘要：真实摘要。开工前/)
+  assert.doesNotMatch(injected[0].content[0].text, /。。/)
+})
+
 test('handoff POST writes .dsh-mounts/handoff.md and the snapshot reads it', async () => {
   const response = await call(handoff(), {
     method: 'POST',
@@ -276,4 +320,38 @@ test('project_context tool is registered and reads a workspace', async () => {
   const missing = await definition.execute({ workspace: 'workspace-typo' }, { signal: new AbortController().signal })
   assert.match(missing.text, /未找到工作区/)
   assert.doesNotMatch(missing.text, /## 记忆库/)
+})
+
+test('handoffPreview reads 摘要 markers with both colon widths', () => {
+  assert.equal(handoffPreview('# 交接\n\n> 摘要：真实摘要\n'), '真实摘要')
+  assert.equal(handoffPreview('> 摘要: 真实摘要\n'), '真实摘要')
+})
+
+test('handoffPreview strips bold 摘要 markers', () => {
+  assert.equal(handoffPreview('> **摘要**：真实摘要\n'), '真实摘要')
+  assert.equal(handoffPreview('> **摘要** : 真实摘要\n'), '真实摘要')
+})
+
+test('handoffPreview reads English Summary markers case-insensitively', () => {
+  assert.equal(handoffPreview('> Summary: real summary\n'), 'real summary')
+  assert.equal(handoffPreview('> summary:real summary\n'), 'real summary')
+})
+
+test('handoffPreview accepts a full-width colon after Summary', () => {
+  assert.equal(handoffPreview('> Summary：全角\n'), '全角')
+})
+
+test('handoffPreview prefers 摘要 over Summary and the first quote', () => {
+  assert.equal(handoffPreview('> 读者：后来的人\n> Summary: english\n> **摘要**：真实摘要\n'), '真实摘要')
+  assert.equal(handoffPreview('> 读者：后来的人\n> Summary: english\n'), 'english')
+})
+
+test('handoffPreview falls back to the first quote without a marker', () => {
+  assert.equal(handoffPreview('> 读者：后来的人\n\n正文\n'), '读者：后来的人')
+})
+
+test('handoffPreview caps a long summary at 160 characters', () => {
+  const preview = handoffPreview('> 摘要：' + '示'.repeat(200) + '\n')
+  assert.equal(preview.length, 160)
+  assert.equal(preview, '示'.repeat(159) + '…')
 })

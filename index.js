@@ -508,19 +508,27 @@ function handoffAgeText(mtime) {
   return Math.floor(hours / 24) + ' 天前'
 }
 
-function handoffPreview(text) {
+export function handoffPreview(text) {
   const lines = String(text || '')
     .split('\n')
     .map((line) => line.trim())
     .filter(Boolean)
+  const summaryLine = lines.find((line) => /^>\s*(?:\*\*\s*摘要\s*\*\*|摘要)\s*[:：]/.test(line))
+  const englishLine = lines.find((line) => /^>\s*summary\s*[:：]/i.test(line))
   const quoted = lines.find((line) => /^>\s*\S/.test(line))
   const plain = lines.find((line) => !/^#{1,6}\s/.test(line) && !/^[-*_]{3,}$/.test(line))
   const heading = lines.find((line) => /^#{1,6}\s/.test(line))
-  const textLine = quoted
-    ? quoted.replace(/^>\s*/, '')
-    : plain
-      ? plain.replace(/^([-*+]|\d+\.)\s+/, '')
-      : heading || ''
+  const marker = summaryLine || englishLine
+  const textLine = marker
+    ? marker
+        .replace(/^>\s*/, '')
+        .replace(/^\*\*\s*摘要\s*\*\*\s*[:：]\s*/, '')
+        .replace(/^(?:摘要|summary)\s*[:：]\s*/i, '')
+    : quoted
+      ? quoted.replace(/^>\s*/, '')
+      : plain
+        ? plain.replace(/^([-*+]|\d+\.)\s+/, '')
+        : heading || ''
   const summary = textLine.replace(/^摘要\s*[:：]\s*/, '')
   return capText(summary || textLine, 160)
 }
@@ -1337,11 +1345,9 @@ export function apply(ctx, config) {
     }
   })
 
-  // One short handoff hint per new agent. This is metadata only: the agent
-  // still reads the file itself, and nothing is injected when no handoff exists.
-  // Handoff auto-hint: one short inbox message per new agent. `agent.inject`
-  // expects a complete UserMessage; omitting `role` produces an untyped
-  // message that breaks the first request (seen as TRANSPORT on 2026-11-06).
+  // One handoff hint per new agent; subagents are skipped. `agent.inject`
+  // expects a complete UserMessage, and omitting `role: 'user'` produces an
+  // untyped message that breaks the first request (seen as TRANSPORT).
   const hintedAgents = new WeakSet()
   ctx.effect(() =>
     ctx.on('agent/created', ({ agent }) => {

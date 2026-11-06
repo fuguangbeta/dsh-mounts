@@ -322,6 +322,11 @@ window.__ModuleLoader__.load({
       return (size / 1024 / 1024).toFixed(1) + ' MB'
     }
 
+    function mcpCountText(configured, active, t) {
+      const label = typeof t === 'function' ? t : (key) => ZN[key] || key
+      return label('mcp.configured') + ' ' + configured + ' · ' + label('mcp.active') + ' ' + (active === null ? '—' : active)
+    }
+
     function shortTime(iso) {
       const date = new Date(iso)
       if (Number.isNaN(date.getTime())) return ''
@@ -659,6 +664,10 @@ window.__ModuleLoader__.load({
       }, [workspace])
       React.useEffect(load, [load])
       return { ...state, reload: load }
+    }
+
+    if (typeof globalThis !== 'undefined' && globalThis.__DSH_MOUNTS_TEST__) {
+      globalThis.__DSH_MOUNTS_TEST__.helpers = { shortDate, bytes, mcpCountText }
     }
 
     return {
@@ -1026,7 +1035,7 @@ window.__ModuleLoader__.load({
                 effectiveAvailable && effectiveScope === 'session'
                   ? list.filter((server) => mcpOn(server) === true).length
                   : null
-              return t('mcp.configured') + ' ' + configured + ' · ' + t('mcp.active') + ' ' + (active === null ? '—' : active)
+              return mcpCountText(configured, active, t)
             }
 
             const emptyLine = (text, depth) =>
