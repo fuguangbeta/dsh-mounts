@@ -69,3 +69,31 @@ test('bytes keeps the current unit thresholds', () => {
   assert.equal(helpers.bytes('2048'), '2.0 KB')
   assert.equal(helpers.bytes(undefined), '0 B')
 })
+
+test('handoffTemplate fills the local date and the summary marker', () => {
+  const text = helpers.handoffTemplate('2026-11-07')
+  assert.match(text, /^# 交接（2026-11-07）$/m)
+  assert.match(text, /^> 摘要：/m)
+  assert.match(text, /^## 现场$/m)
+  assert.match(text, /^## 未决$/m)
+  assert.match(text, /^## 下一步$/m)
+  assert.match(text, /^- $/m)
+})
+
+test('handoffTemplate uses the active dictionary', () => {
+  const en = (key) =>
+    ({
+      'handoff.templateTitle': 'Handoff',
+      'handoff.templateSummary': 'Summary: ',
+      'handoff.templateSummaryText': 'one-line state',
+      'handoff.templateState': 'State',
+      'handoff.templateOpen': 'Open issues',
+      'handoff.templateNext': 'Next step',
+    })[key] || key
+  const text = helpers.handoffTemplate('2026-11-07', en)
+  assert.match(text, /^# Handoff（2026-11-07）$/m)
+  assert.match(text, /^> Summary: one-line state$/m)
+  assert.match(text, /^## State$/m)
+  assert.match(text, /^## Open issues$/m)
+  assert.match(text, /^## Next step$/m)
+})

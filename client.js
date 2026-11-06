@@ -63,6 +63,14 @@ window.__ModuleLoader__.load({
       'handoff.placeholder': '时间 / 版本 / 现场 / 未决 / 下一步',
       'handoff.saved': '交接已保存',
       'handoff.saveFailed': '交接保存失败',
+      'handoff.templateTitle': '交接',
+      'handoff.templateSummary': '摘要：',
+      'handoff.templateSummaryText': '一句话现状',
+      'handoff.templateState': '现场',
+      'handoff.templateOpen': '未决',
+      'handoff.templateNext': '下一步',
+      'brief.copied': '已复制',
+      'brief.copyFailed': '复制失败',
       'team.none': '未检测到',
       'team.members': '成员',
       'team.tasks': '任务',
@@ -150,6 +158,14 @@ window.__ModuleLoader__.load({
       'handoff.placeholder': 'Time / version / state / open issues / next step',
       'handoff.saved': 'Handoff saved',
       'handoff.saveFailed': 'Failed to save handoff',
+      'handoff.templateTitle': 'Handoff',
+      'handoff.templateSummary': 'Summary: ',
+      'handoff.templateSummaryText': 'one-line state',
+      'handoff.templateState': 'State',
+      'handoff.templateOpen': 'Open issues',
+      'handoff.templateNext': 'Next step',
+      'brief.copied': 'Copied',
+      'brief.copyFailed': 'Copy failed',
       'team.none': 'Not detected',
       'team.members': 'Members',
       'team.tasks': 'Tasks',
@@ -325,6 +341,25 @@ window.__ModuleLoader__.load({
     function mcpCountText(configured, active, t) {
       const label = typeof t === 'function' ? t : (key) => ZN[key] || key
       return label('mcp.configured') + ' ' + configured + ' · ' + label('mcp.active') + ' ' + (active === null ? '—' : active)
+    }
+
+    function handoffTemplate(dateText, t) {
+      const label = typeof t === 'function' ? t : (key) => ZN[key] || key
+      return [
+        '# ' + label('handoff.templateTitle') + '（' + dateText + '）',
+        '',
+        '> ' + label('handoff.templateSummary') + label('handoff.templateSummaryText'),
+        '',
+        '## ' + label('handoff.templateState'),
+        '- ',
+        '',
+        '## ' + label('handoff.templateOpen'),
+        '- ',
+        '',
+        '## ' + label('handoff.templateNext'),
+        '- ',
+        '',
+      ].join('\n')
     }
 
     function shortTime(iso) {
@@ -667,7 +702,7 @@ window.__ModuleLoader__.load({
     }
 
     if (typeof globalThis !== 'undefined' && globalThis.__DSH_MOUNTS_TEST__) {
-      globalThis.__DSH_MOUNTS_TEST__.helpers = { shortDate, bytes, mcpCountText }
+      globalThis.__DSH_MOUNTS_TEST__.helpers = { shortDate, bytes, mcpCountText, handoffTemplate }
     }
 
     return {
@@ -799,6 +834,8 @@ window.__ModuleLoader__.load({
           const [handoffSaving, setHandoffSaving] = React.useState(false)
           const handoffInputRef = React.useRef(null)
           const [canOpen, setCanOpen] = React.useState(false)
+          const [copyState, setCopyState] = React.useState('idle')
+          const copyTimer = React.useRef(null)
           const data = inventory.data
 
           // Detect the opener after mount, never during apply: touching the Remote
@@ -820,6 +857,13 @@ window.__ModuleLoader__.load({
               clearTimeout(last)
             }
           }, [])
+
+          React.useEffect(
+            () => () => {
+              if (copyTimer.current) clearTimeout(copyTimer.current)
+            },
+            [],
+          )
 
           const toggleBlock = (id) => setOpenBlocks((previous) => ({ ...previous, [id]: !previous[id] }))
           const toggleSection = (id) => setOpenSections((previous) => ({ ...previous, [id]: !previous[id] }))
@@ -952,6 +996,25 @@ window.__ModuleLoader__.load({
               workspaces.find((entry) => entry.name === (briefPick || defaultBriefName)) || null
             const briefText = activeBrief ? activeBrief.brief || '' : brief
             const briefName = activeBrief ? activeBrief.name : defaultBriefName
+
+            const copyBrief = () => {
+              const text = briefText || brief
+              const settle = (state) => {
+                setCopyState(state)
+                if (copyTimer.current) clearTimeout(copyTimer.current)
+                copyTimer.current = setTimeout(() => setCopyState('idle'), 1500)
+              }
+              try {
+                const clipboard = typeof navigator !== 'undefined' ? navigator.clipboard : null
+                if (!clipboard || typeof clipboard.writeText !== 'function') {
+                  settle('failed')
+                  return
+                }
+                clipboard.writeText(text).then(() => settle('copied'), () => settle('failed'))
+              } catch {
+                settle('failed')
+              }
+            }
 
             const home = String(globalRules.path || '')
               .replace(/[\\/]\.dsh[\\/]AGENTS\.md$/i, '')
@@ -1248,12 +1311,13 @@ window.__ModuleLoader__.load({
                       {
                         className: 'dmp-link-btn',
                         type: 'button',
-                        onClick: () =>
-                          setHandoffDraft(
-                            selectedEntry.handoff && typeof selectedEntry.handoff.text === 'string'
-                              ? selectedEntry.handoff.text
-                              : '',
-                          ),
+                        onClick: () => {
+                          if (selectedEntry.handoff) {
+                            setHandoffDraft(typeof selectedEntry.handoff.text === 'string' ? selectedEntry.handoff.text : '')
+                          } else {
+                            setHandoffDraft(handoffTemplate(shortDate(new Date()), t))
+                          }
+                        },
                       },
                       selectedEntry.handoff ? t('handoff.edit') : t('handoff.write'),
                     ),
@@ -1534,6 +1598,16 @@ window.__ModuleLoader__.load({
                   'div',
                   { className: 'dmp-actions' },
                   h(Chip, { tone: 'ok' }, t('panel.readonly')),
+                  h(
+                    'button',
+                    {
+                      className: 'dmp-btn',
+                      type: 'button',
+                      disabled: !(briefText || brief),
+                      onClick: copyBrief,
+                    },
+                    copyState === 'copied' ? t('brief.copied') : copyState === 'failed' ? t('brief.copyFailed') : t('brief.copy'),
+                  ),
                   h(
                     'button',
                     {
