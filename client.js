@@ -83,6 +83,7 @@ window.__ModuleLoader__.load({
       'mcp.configured': '配置',
       'mcp.externalHint': '.mcp.json 是外部格式，DSH 不会挂载；要挂载请用 .dsh/mcp.json。',
       'workspace.empty': '未注册工作区',
+      'workspace.none': '未选择工作区（可搜索全部）',
       'picker.filter': '筛选工作区',
       'picker.noMatch': '无匹配工作区',
       'brief.full': '完整简报',
@@ -183,6 +184,7 @@ window.__ModuleLoader__.load({
       'mcp.configured': 'configured',
       'mcp.externalHint': '.mcp.json is an external format; DSH does not mount it. Use .dsh/mcp.json instead.',
       'workspace.empty': 'No registered workspace',
+      'workspace.none': 'No workspace selected (search to pick one)',
       'picker.filter': 'Filter workspaces',
       'picker.noMatch': 'No matching workspaces',
       'brief.full': 'Full brief',
@@ -584,7 +586,9 @@ window.__ModuleLoader__.load({
       const [pos, setPos] = React.useState(null)
       const triggerRef = React.useRef(null)
       const menuRef = React.useRef(null)
-      const selected = props.workspaces.find((entry) => entry.name === props.value) || props.workspaces[0]
+      const selected = props.value
+        ? props.workspaces.find((entry) => entry.name === props.value) || null
+        : null
       const [query, setQuery] = React.useState('')
       const filtered = filterWorkspaces(props.workspaces, query)
 
@@ -918,15 +922,9 @@ window.__ModuleLoader__.load({
 
         function MountsPage() {
           const t = useTranslate()
-          const [openBlocks, setOpenBlocks] = React.useState({})
+          const [openBlocks, setOpenBlocks] = React.useState({ global: true })
           const [openSections, setOpenSections] = React.useState({})
-          const [briefPick, setBriefPick] = React.useState(() => {
-            try {
-              return window.localStorage.getItem('dsh-mounts.brief-workspace')
-            } catch {
-              return null
-            }
-          })
+          const [briefPick, setBriefPick] = React.useState('')
           const inventory = useInventory(briefPick)
           const [openMemoryWorkspaces, setOpenMemoryWorkspaces] = React.useState({})
           const [openRows, setOpenRows] = React.useState({})
@@ -940,7 +938,6 @@ window.__ModuleLoader__.load({
           const [canOpen, setCanOpen] = React.useState(false)
           const [skillQuery, setSkillQuery] = React.useState('')
           const data = inventory.data
-          const briefWorkspace = (data && data.briefWorkspace) || ''
 
           // Detect the opener after mount, never during apply: touching the Remote
           // before the client services settle used to abort the whole plugin.
@@ -967,11 +964,17 @@ window.__ModuleLoader__.load({
           const pickWorkspace = (name) => {
             setBriefPick(name)
             setHandoffDraft(null)
-            try {
-              window.localStorage.setItem('dsh-mounts.brief-workspace', name)
-            } catch {
-              /* storage unavailable */
-            }
+            // Manual pick only: open the workspace root and its four rows, and
+            // close the global tree back to its default. Nothing watches
+            // briefPick, so a later manual collapse is never overridden.
+            setOpenBlocks((previous) => ({ ...previous, global: false, workspace: true }))
+            setOpenSections((previous) => ({
+              ...previous,
+              'ws:brief': true,
+              'ws:memory': true,
+              'ws:skills': true,
+              'ws:mcp': true,
+            }))
           }
           const toggleMemoryWorkspace = (name) =>
             setOpenMemoryWorkspaces((previous) => ({ ...previous, [name]: !previous[name] }))
@@ -1098,12 +1101,9 @@ window.__ModuleLoader__.load({
             const sectionMeta = (entry) =>
               bytes(entry.bytes) + ' · ' + (entry.sections || []).length + ' ' + t('label.sections')
 
-            const pickName = briefPick || briefWorkspace || (workspaces[0] && workspaces[0].name) || ''
-            const selectedEntry =
-              workspaces.find((entry) => entry.name === pickName) ||
-              workspaces.find((entry) => entry.name === briefWorkspace) ||
-              workspaces[0] ||
-              null
+            const selectedEntry = briefPick
+              ? workspaces.find((entry) => entry.name === briefPick) || null
+              : null
             const fileSkillNames = new Set(skills.map((skill) => skill.name))
             const bundledSkills = effectiveAvailable
               ? effective.skills
@@ -1638,23 +1638,21 @@ window.__ModuleLoader__.load({
                 Block,
                 {
                   id: 'workspace',
-                  title:
-                    workspaces.length > 1
-                      ? t('root.workspace')
-                      : t('root.workspace') + (selectedEntry ? ' · ' + selectedEntry.name : ''),
+                  title: selectedEntry
+                    ? t('root.workspace')
+                    : t('root.workspace') + ' · ' + (workspaces.length ? t('workspace.none') : t('workspace.empty')),
                   count: workspaceItemCount,
-                  action:
-                    workspaces.length > 1 && selectedEntry
-                      ? h(WorkspacePicker, {
-                          compact: true,
-                          workspaces,
-                          value: selectedEntry.name,
-                          onChange: pickWorkspace,
-                          ariaLabel: t('root.workspace'),
-                          filterPlaceholder: t('picker.filter'),
-                          emptyText: t('picker.noMatch'),
-                        })
-                      : null,
+                  action: workspaces.length
+                    ? h(WorkspacePicker, {
+                        compact: true,
+                        workspaces,
+                        value: selectedEntry ? selectedEntry.name : '',
+                        onChange: pickWorkspace,
+                        ariaLabel: t('root.workspace'),
+                        filterPlaceholder: t('picker.filter'),
+                        emptyText: t('picker.noMatch'),
+                      })
+                    : null,
                   open: Boolean(openBlocks.workspace),
                   onToggle: () => toggleBlock('workspace'),
                 },

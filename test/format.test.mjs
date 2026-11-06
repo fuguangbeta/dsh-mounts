@@ -271,11 +271,13 @@ test('panel smoke: the loading state renders without throwing', () => {
   assert.match(output, /读取中/)
 })
 
-test('panel smoke: the ready state renders the header', () => {
+test('panel smoke: the ready state starts with no workspace picked', () => {
   const { page, ReactStub } = mountPanel({ status: 'ready', data: readySnapshot(), error: null })
   const output = renderTree(ReactStub.createElement(page, {}))
   assert.match(output, /挂载清单/)
   assert.match(output, /生成于/)
+  assert.match(output, /未选择工作区（可搜索全部）/)
+  assert.doesNotMatch(output, /alpha/)
 })
 
 test('panel smoke: a render error becomes one readable line with retry', () => {
