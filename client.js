@@ -82,11 +82,9 @@ window.__ModuleLoader__.load({
       'mcp.active': '生效',
       'mcp.configured': '配置',
       'mcp.externalHint': '.mcp.json 是外部格式，DSH 不会挂载；要挂载请用 .dsh/mcp.json。',
-      'workspace.empty': '未注册工作区',
+      'workspace.empty': '请选择工作区',
       'picker.choose': '选择',
-      'search.open': '全局搜索',
-      'search.placeholder': '搜索技能、记忆与 MCP',
-      'search.empty': '输入以搜索技能、记忆与 MCP',
+      'search.placeholder': '搜索技能 / 记忆 / MCP',
       'search.noMatch': '无匹配',
       'search.kind.skill': '技能',
       'search.kind.memory': '记忆',
@@ -188,11 +186,9 @@ window.__ModuleLoader__.load({
       'mcp.active': 'active',
       'mcp.configured': 'configured',
       'mcp.externalHint': '.mcp.json is an external format; DSH does not mount it. Use .dsh/mcp.json instead.',
-      'workspace.empty': 'No registered workspace',
+      'workspace.empty': 'Choose a workspace',
       'picker.choose': 'Choose',
-      'search.open': 'Search',
-      'search.placeholder': 'Search skills, memory, and MCP',
-      'search.empty': 'Type to search skills, memory, and MCP',
+      'search.placeholder': 'Search skills / memory / MCP',
       'search.noMatch': 'No matches',
       'search.kind.skill': 'Skill',
       'search.kind.memory': 'Memory',
@@ -352,16 +348,17 @@ window.__ModuleLoader__.load({
 .dmp-indent-3{padding-left:64px;}
 .dmp-warning{padding-block:8px;padding-right:16px;font-size:11px;line-height:1.6;color:var(--dsw-alias-state-warn-primary);border-top:1px solid var(--dsw-alias-border-l1);}
 .dmp-foot{margin-top:18px;display:flex;flex-wrap:wrap;gap:6px 16px;font-size:11.5px;color:var(--dsw-alias-label-secondary);}
-.dmp-search{position:fixed;inset:0;z-index:1200;display:flex;align-items:flex-start;justify-content:center;padding-top:12vh;background:rgba(0,0,0,.32);}
-.dmp-search-panel{width:min(560px,90vw);max-height:64vh;display:flex;flex-direction:column;background:var(--dsw-alias-bg-layer-1);border:1px solid var(--dsw-alias-border-l1);border-radius:12px;box-shadow:0 24px 60px -24px rgba(0,0,0,.6);overflow:hidden;}
-.dmp-search-input{border:0;border-bottom:1px solid var(--dsw-alias-border-l1);background:none;color:inherit;font:inherit;font-size:13px;padding:12px 14px;outline:none;}
-.dmp-search-list{overflow:auto;}
-.dmp-search-row{display:flex;align-items:baseline;gap:10px;width:100%;border:0;background:none;color:inherit;font:inherit;text-align:left;padding:8px 14px;cursor:pointer;}
+.dmp-search-field{position:relative;flex:0 1 220px;min-width:120px;max-width:260px;display:flex;}
+.dmp-search-input{flex:1;min-width:0;box-sizing:border-box;border:1px solid var(--dsw-alias-border-l1);border-radius:8px;background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-primary);font:inherit;font-size:11px;line-height:18px;padding:4px 8px;}
+.dmp-search-input:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:2px;}
+.dmp-search-input::placeholder{color:var(--dsw-alias-label-secondary);}
+.dmp-search-list{position:absolute;top:calc(100% + 6px);right:0;z-index:1100;width:max(280px,100%);max-height:320px;overflow:auto;padding:4px;background:var(--dsw-alias-bg-layer-1);border:1px solid var(--dsw-alias-border-l1);border-radius:10px;box-shadow:0 16px 36px -20px rgba(0,0,0,.55);}
+.dmp-search-row{display:flex;align-items:baseline;gap:10px;width:100%;border:0;background:none;color:inherit;font:inherit;text-align:left;padding:8px 10px;border-radius:6px;cursor:pointer;}
 .dmp-search-row.is-active{background:var(--dsw-alias-bg-layer-2);}
 .dmp-search-kind{flex:none;min-width:32px;font-size:10.5px;color:var(--dsw-alias-label-secondary);}
 .dmp-search-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;}
 .dmp-search-detail{margin-left:auto;max-width:50%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10.5px;color:var(--dsw-alias-label-secondary);}
-.dmp-search-empty{padding:14px;font-size:12px;color:var(--dsw-alias-label-secondary);}
+.dmp-search-empty{padding:10px 12px;font-size:12px;color:var(--dsw-alias-label-secondary);}
 .dmp-flash{animation:dmp-flash 2s var(--dmp-ease);}
 @keyframes dmp-flash{0%,55%{background:var(--dsw-alias-bg-layer-2);}100%{background:transparent;}}
 @media (prefers-reduced-motion: reduce){.dmp-inner,.dmp-collapse,.dmp-arrow,.dmp-btn,.dmp-open-btn,.dmp-select-button,.dmp-select-button .dmp-picker-caret,.dmp-block-head,.dmp-mem-head,.dmp-row-head,.dmp-open-notice,.dmp-open-error,.dmp-menu,.dmp-menu-option{animation:none!important;transition:none!important;}}
@@ -995,12 +992,15 @@ window.__ModuleLoader__.load({
           const [handoffSaving, setHandoffSaving] = React.useState(false)
           const handoffInputRef = React.useRef(null)
           const [canOpen, setCanOpen] = React.useState(false)
-          const [searchOpen, setSearchOpen] = React.useState(false)
+          const [searchListOpen, setSearchListOpen] = React.useState(false)
           const [searchQuery, setSearchQuery] = React.useState('')
           const [searchCursor, setSearchCursor] = React.useState(0)
+          const searchInputRef = React.useRef(null)
+          const searchFieldRef = React.useRef(null)
           const pendingAnchor = React.useRef(null)
           const data = inventory.data
-          const searchResults = data && searchOpen ? querySearch(buildSearchIndex(data, briefPick), searchQuery) : []
+          const searchResults =
+            data && searchListOpen ? querySearch(buildSearchIndex(data, briefPick), searchQuery) : []
 
           // Detect the opener after mount, never during apply: touching the Remote
           // before the client services settle used to abort the whole plugin.
@@ -1029,13 +1029,23 @@ window.__ModuleLoader__.load({
               const tag = target && target.tagName ? String(target.tagName).toLowerCase() : ''
               if (tag === 'input' || tag === 'textarea' || (target && target.isContentEditable)) return
               event.preventDefault()
-              setSearchQuery('')
-              setSearchCursor(0)
-              setSearchOpen(true)
+              const input = searchInputRef.current
+              if (input && typeof input.focus === 'function') input.focus()
             }
             window.addEventListener('keydown', onKeyDown)
             return () => window.removeEventListener('keydown', onKeyDown)
           }, [])
+
+          React.useEffect(() => {
+            if (!searchListOpen) return undefined
+            const onPointerDown = (event) => {
+              const field = searchFieldRef.current
+              if (field && typeof field.contains === 'function' && field.contains(event.target)) return
+              setSearchListOpen(false)
+            }
+            document.addEventListener('pointerdown', onPointerDown, true)
+            return () => document.removeEventListener('pointerdown', onPointerDown, true)
+          }, [searchListOpen])
 
           React.useEffect(() => {
             if (!pendingAnchor.current) return
@@ -1059,17 +1069,7 @@ window.__ModuleLoader__.load({
             setOpenSkillsScope({})
             setOpenSkillWorkspaces({})
           }
-          const closeSearch = () => {
-            setSearchOpen(false)
-            setSearchQuery('')
-            setSearchCursor(0)
-          }
-
-          const openSearch = () => {
-            setSearchQuery('')
-            setSearchCursor(0)
-            setSearchOpen(true)
-          }
+          const closeSearchList = () => setSearchListOpen(false)
 
           const revealAnchor = (anchor) => {
             if (!anchor || typeof document === 'undefined') return
@@ -1088,7 +1088,9 @@ window.__ModuleLoader__.load({
 
           const activateResult = (item) => {
             if (!item) return
-            closeSearch()
+            setSearchListOpen(false)
+            setSearchQuery('')
+            setSearchCursor(0)
             const workspace = String(item.workspace || '')
             const anchor = anchorKey(item.kind, workspace, item.name)
             const sectionId = { memory: 'ws:memory', skill: 'ws:skills', mcp: 'ws:mcp' }[item.kind]
@@ -1694,7 +1696,9 @@ window.__ModuleLoader__.load({
                       : [emptyLine(t('mcp.projectEmpty'), 2)],
                   ),
                 ]
-              : [emptyLine(t('workspace.empty'), 1)]
+              : openBlocks.workspace
+                ? [emptyLine(t('workspace.empty'), 1)]
+                : []
 
             body = h(
               React.Fragment,
@@ -1804,58 +1808,31 @@ window.__ModuleLoader__.load({
                   { className: 'dmp-actions' },
                   h(Chip, { tone: 'ok' }, t('panel.readonly')),
                   h(
-                    'button',
-                    {
-                      className: 'dmp-btn',
-                      type: 'button',
-                      onClick: openSearch,
-                    },
-                    t('search.open'),
-                  ),
-                  h(
-                    'button',
-                    {
-                      className: 'dmp-btn',
-                      type: 'button',
-                      onClick: inventory.reload,
-                      disabled: inventory.status === 'loading',
-                    },
-                    t('panel.refresh'),
-                  ),
-                ),
-              ),
-              body,
-            ),
-            searchOpen
-              ? h(
-                  'div',
-                  {
-                    className: 'dmp-search',
-                    onMouseDown: (event) => {
-                      if (event.target === event.currentTarget) closeSearch()
-                    },
-                    onKeyDown: (event) => {
-                      if (event.key === 'Escape') closeSearch()
-                    },
-                  },
-                  h(
                     'div',
-                    { className: 'dmp-search-panel' },
+                    { className: 'dmp-search-field', ref: searchFieldRef },
                     h('input', {
+                      ref: searchInputRef,
                       className: 'dmp-search-input',
                       type: 'search',
-                      autoFocus: true,
                       value: searchQuery,
                       placeholder: t('search.placeholder'),
                       'aria-label': t('search.placeholder'),
+                      onFocus: () => {
+                        if (searchQuery.trim() !== '') setSearchListOpen(true)
+                      },
                       onChange: (event) => {
-                        setSearchQuery(event.target.value)
+                        const value = event.target.value
+                        setSearchQuery(value)
                         setSearchCursor(0)
+                        setSearchListOpen(value.trim() !== '')
                       },
                       onKeyDown: (event) => {
                         if (event.key === 'Escape') {
                           event.preventDefault()
-                          closeSearch()
+                          setSearchListOpen(false)
+                          if (searchInputRef.current && typeof searchInputRef.current.blur === 'function') {
+                            searchInputRef.current.blur()
+                          }
                           return
                         }
                         if (event.key === 'ArrowDown') {
@@ -1875,32 +1852,44 @@ window.__ModuleLoader__.load({
                         }
                       },
                     }),
-                    h(
-                      'div',
-                      { className: 'dmp-search-list' },
-                      searchQuery.trim() === ''
-                        ? h('div', { className: 'dmp-search-empty' }, t('search.empty'))
-                        : searchResults.length === 0
-                          ? h('div', { className: 'dmp-search-empty' }, t('search.noMatch'))
-                          : searchResults.slice(0, 50).map((item, index) =>
-                              h(
-                                'button',
-                                {
-                                  key: index + '|' + item.kind + '|' + item.workspace + '|' + item.name,
-                                  type: 'button',
-                                  className: 'dmp-search-row' + (index === searchCursor ? ' is-active' : ''),
-                                  onMouseEnter: () => setSearchCursor(index),
-                                  onClick: () => activateResult(item),
-                                },
-                                h('span', { className: 'dmp-search-kind' }, t('search.kind.' + item.kind)),
-                                h('span', { className: 'dmp-search-name' }, item.name),
-                                h('span', { className: 'dmp-search-detail' }, item.detail || item.workspace || ''),
+                    searchListOpen && searchQuery.trim() !== ''
+                      ? h(
+                          'div',
+                          { className: 'dmp-search-list' },
+                          searchResults.length === 0
+                            ? h('div', { className: 'dmp-search-empty' }, t('search.noMatch'))
+                            : searchResults.slice(0, 50).map((item, index) =>
+                                h(
+                                  'button',
+                                  {
+                                    key: index + '|' + item.kind + '|' + item.workspace + '|' + item.name,
+                                    type: 'button',
+                                    className: 'dmp-search-row' + (index === searchCursor ? ' is-active' : ''),
+                                    onMouseEnter: () => setSearchCursor(index),
+                                    onClick: () => activateResult(item),
+                                  },
+                                  h('span', { className: 'dmp-search-kind' }, t('search.kind.' + item.kind)),
+                                  h('span', { className: 'dmp-search-name' }, item.name),
+                                  h('span', { className: 'dmp-search-detail' }, item.detail || item.workspace || ''),
+                                ),
                               ),
-                            ),
-                    ),
+                        )
+                      : null,
                   ),
-                )
-              : null,
+                  h(
+                    'button',
+                    {
+                      className: 'dmp-btn',
+                      type: 'button',
+                      onClick: inventory.reload,
+                      disabled: inventory.status === 'loading',
+                    },
+                    t('panel.refresh'),
+                  ),
+                ),
+              ),
+              body,
+            ),
           )
         }
 

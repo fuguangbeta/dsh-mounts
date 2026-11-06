@@ -193,6 +193,29 @@ function collectFlags(node, out = []) {
   return out
 }
 
+function collectPlaceholders(node, out = []) {
+  if (node === null || node === undefined || typeof node === 'boolean') return out
+  if (typeof node === 'string' || typeof node === 'number') return out
+  if (Array.isArray(node)) {
+    for (const child of node) collectPlaceholders(child, out)
+    return out
+  }
+  const props = node.props || {}
+  if (typeof props.placeholder === 'string') out.push(props.placeholder)
+  const type = node.type
+  if (typeof type === 'function') {
+    if (type.prototype && typeof type.prototype.render === 'function') {
+      const instance = new type(props)
+      collectPlaceholders(instance.render(), out)
+      return out
+    }
+    collectPlaceholders(type(props), out)
+    return out
+  }
+  collectPlaceholders(props.children, out)
+  return out
+}
+
 function mountPanel(readyState) {
   const ReactStub = makeReactStub(readyState)
   const module = captured.config.factory((name) => {
@@ -273,10 +296,13 @@ test('panel smoke: the ready state starts collapsed with no workspace picked', (
   const output = renderTree(pageElement)
   assert.match(output, /挂载清单/)
   assert.match(output, /生成于/)
-  assert.match(output, /全局搜索/)
   assert.match(output, /选择/)
-  assert.doesNotMatch(output, /可搜索全部/)
+  assert.doesNotMatch(output, /请选择工作区/)
+  assert.doesNotMatch(output, /可搜索全部|未注册/)
   assert.doesNotMatch(output, /alpha/)
+  const placeholders = collectPlaceholders(pageElement)
+  assert.ok(placeholders.includes('搜索技能 / 记忆 / MCP'))
+  assert.ok(placeholders.includes('选择'))
   const expanded = collectFlags(pageElement).filter((value) => value === true)
   assert.equal(expanded.length, 0, 'nothing should be expanded on first render')
 })
