@@ -325,7 +325,18 @@ test('panel smoke: the pane entrance animation is present and motion-safe', () =
   const output = renderTree(ReactStub.createElement(page, {}))
   assert.match(output, /\.dmp-root\{animation:dmp-pane-in 180ms ease-out both;\}/)
   assert.match(output, /@keyframes dmp-pane-in\{from\{opacity:0;transform:translateY\(6px\);\}to\{opacity:1;transform:none;\}\}/)
-  assert.match(output, /prefers-reduced-motion: reduce\)\{\.dmp-root,\.dmp-block-head\{animation:none!important;\}\}/)
+  assert.match(output, /@keyframes dmp-wipe\{from\{clip-path:inset\(0 100% 0 0\);\}to\{clip-path:inset\(0 0 0 0\);\}\}/)
+  assert.ok(output.includes('animation:dmp-wipe 260ms cubic-bezier(.2,0,0,1) both'))
+  assert.ok(output.includes('section.dmp-block:nth-of-type(2) .dmp-block-head{animation-delay:60ms;}'))
+  assert.ok(
+    output.includes(
+      '.dmp-collapse.is-open > .dmp-collapse-inner > .dmp-group > .dmp-mem-head{animation:dmp-wipe 220ms cubic-bezier(.2,0,0,1) both;}',
+    ),
+  )
+  assert.match(
+    output,
+    /prefers-reduced-motion: reduce\)\{\.dmp-root,\.dmp-block-head,\.dmp-mem-head\{animation:none!important;\}\}/,
+  )
   assert.ok(output.includes('animation:dmp-row-in 160ms ease-out both'))
   assert.ok(output.includes('animation-delay:calc(var(--dmp-i,0) * 20ms)'))
   assert.ok(output.includes('.dmp-collapse.is-open > .dmp-collapse-inner > .dmp-item'))
