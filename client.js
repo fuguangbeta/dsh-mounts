@@ -84,6 +84,13 @@ window.__ModuleLoader__.load({
       'mcp.externalHint': '.mcp.json 是外部格式，DSH 不会挂载；要挂载请用 .dsh/mcp.json。',
       'workspace.empty': '未注册工作区',
       'workspace.none': '未选择工作区（可搜索全部）',
+      'search.open': '全局搜索',
+      'search.placeholder': '搜索技能、记忆与 MCP',
+      'search.empty': '输入以搜索技能、记忆与 MCP',
+      'search.noMatch': '无匹配',
+      'search.kind.skill': '技能',
+      'search.kind.memory': '记忆',
+      'search.kind.mcp': 'MCP',
       'picker.filter': '筛选工作区',
       'picker.noMatch': '无匹配工作区',
       'brief.full': '完整简报',
@@ -185,6 +192,13 @@ window.__ModuleLoader__.load({
       'mcp.externalHint': '.mcp.json is an external format; DSH does not mount it. Use .dsh/mcp.json instead.',
       'workspace.empty': 'No registered workspace',
       'workspace.none': 'No workspace selected (search to pick one)',
+      'search.open': 'Search',
+      'search.placeholder': 'Search skills, memory, and MCP',
+      'search.empty': 'Type to search skills, memory, and MCP',
+      'search.noMatch': 'No matches',
+      'search.kind.skill': 'Skill',
+      'search.kind.memory': 'Memory',
+      'search.kind.mcp': 'MCP',
       'picker.filter': 'Filter workspaces',
       'picker.noMatch': 'No matching workspaces',
       'brief.full': 'Full brief',
@@ -348,6 +362,18 @@ window.__ModuleLoader__.load({
 .dmp-indent-3{padding-left:64px;}
 .dmp-warning{padding-block:8px;padding-right:16px;font-size:11px;line-height:1.6;color:var(--dsw-alias-state-warn-primary);border-top:1px solid var(--dsw-alias-border-l1);}
 .dmp-foot{margin-top:18px;display:flex;flex-wrap:wrap;gap:6px 16px;font-size:11.5px;color:var(--dsw-alias-label-secondary);}
+.dmp-search{position:fixed;inset:0;z-index:1200;display:flex;align-items:flex-start;justify-content:center;padding-top:12vh;background:rgba(0,0,0,.32);}
+.dmp-search-panel{width:min(560px,90vw);max-height:64vh;display:flex;flex-direction:column;background:var(--dsw-alias-bg-layer-1);border:1px solid var(--dsw-alias-border-l1);border-radius:12px;box-shadow:0 24px 60px -24px rgba(0,0,0,.6);overflow:hidden;}
+.dmp-search-input{border:0;border-bottom:1px solid var(--dsw-alias-border-l1);background:none;color:inherit;font:inherit;font-size:13px;padding:12px 14px;outline:none;}
+.dmp-search-list{overflow:auto;}
+.dmp-search-row{display:flex;align-items:baseline;gap:10px;width:100%;border:0;background:none;color:inherit;font:inherit;text-align:left;padding:8px 14px;cursor:pointer;}
+.dmp-search-row.is-active{background:var(--dsw-alias-bg-layer-2);}
+.dmp-search-kind{flex:none;min-width:32px;font-size:10.5px;color:var(--dsw-alias-label-secondary);}
+.dmp-search-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;}
+.dmp-search-detail{margin-left:auto;max-width:50%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10.5px;color:var(--dsw-alias-label-secondary);}
+.dmp-search-empty{padding:14px;font-size:12px;color:var(--dsw-alias-label-secondary);}
+.dmp-flash{animation:dmp-flash 2s var(--dmp-ease);}
+@keyframes dmp-flash{0%,55%{background:var(--dsw-alias-bg-layer-2);}100%{background:transparent;}}
 @media (prefers-reduced-motion: reduce){.dmp-inner,.dmp-collapse,.dmp-arrow,.dmp-btn,.dmp-open-btn,.dmp-select-button,.dmp-select-button .dmp-picker-caret,.dmp-block-head,.dmp-mem-head,.dmp-row-head,.dmp-open-notice,.dmp-open-error,.dmp-menu,.dmp-menu-option{animation:none!important;transition:none!important;}}
 `
 
@@ -404,6 +430,52 @@ window.__ModuleLoader__.load({
         const name = String((item && item.name) || '').toLowerCase()
         const where = String((item && item.path) || '').toLowerCase()
         return name.includes(needle) || where.includes(needle)
+      })
+    }
+
+    function anchorKey(kind, workspace, name) {
+      return String(kind) + ':' + String(workspace || '') + ':' + String(name || '')
+    }
+
+    function buildSearchIndex(snapshot, selectedWorkspace) {
+      const data = snapshot || {}
+      const skills = Array.isArray(data.skills) ? data.skills : []
+      const workspaces = Array.isArray(data.workspaces) ? data.workspaces : []
+      const picked = String(selectedWorkspace || '')
+      const pickedEntry = picked ? workspaces.find((ws) => ws.name === picked) || null : null
+      const entries = []
+      const push = (kind, name, detail, workspace) =>
+        entries.push({
+          kind,
+          name: String(name || ''),
+          detail: String(detail || ''),
+          workspace: String(workspace || ''),
+        })
+      const targets = picked ? workspaces.filter((ws) => ws.name === picked) : workspaces
+      for (const ws of targets) {
+        for (const file of (ws.memory && ws.memory.files) || []) {
+          push('memory', file.name, file.realPath || file.dir || ws.path, ws.name)
+        }
+        for (const server of ws.projectMcp || []) {
+          push('mcp', server.server || server.row, server.target || server.source || server.transport, ws.name)
+        }
+      }
+      for (const skill of skills) {
+        if (skill.scope !== 'workspace') continue
+        if (picked && skill.workspace !== picked && !(pickedEntry && skill.workspacePath === pickedEntry.path)) continue
+        push('skill', skill.name, skill.path || skill.source, skill.workspace || picked)
+      }
+      return entries
+    }
+
+    function querySearch(index, query) {
+      const needle = String(query == null ? '' : query).trim().toLowerCase()
+      if (!needle) return []
+      const list = Array.isArray(index) ? index : []
+      return list.filter((item) => {
+        const name = String((item && item.name) || '').toLowerCase()
+        const detail = String((item && item.detail) || '').toLowerCase()
+        return name.includes(needle) || detail.includes(needle)
       })
     }
 
@@ -548,13 +620,13 @@ window.__ModuleLoader__.load({
       const bodyClass = 'dmp-indent-' + (depth + 1)
 
       if (!props.expandable) {
-        return h('div', { className: 'dmp-item static ' + headClass }, text, meta)
+        return h('div', { className: 'dmp-item static ' + headClass, 'data-anchor': props.anchor || undefined }, text, meta)
       }
 
       const bodyId = 'dmp-row-' + props.id
       return h(
         'div',
-        { className: 'dmp-item expandable' },
+        { className: 'dmp-item expandable', 'data-anchor': props.anchor || undefined },
         h(
           'button',
           {
@@ -779,7 +851,16 @@ window.__ModuleLoader__.load({
     }
 
     if (typeof globalThis !== 'undefined' && globalThis.__DSH_MOUNTS_TEST__) {
-      globalThis.__DSH_MOUNTS_TEST__.helpers = { shortDate, bytes, mcpCountText, handoffTemplate, filterSkills, filterWorkspaces }
+      globalThis.__DSH_MOUNTS_TEST__.helpers = {
+        shortDate,
+        bytes,
+        mcpCountText,
+        handoffTemplate,
+        filterSkills,
+        filterWorkspaces,
+        buildSearchIndex,
+        querySearch,
+      }
     }
 
     return {
@@ -937,7 +1018,12 @@ window.__ModuleLoader__.load({
           const handoffInputRef = React.useRef(null)
           const [canOpen, setCanOpen] = React.useState(false)
           const [skillQuery, setSkillQuery] = React.useState('')
+          const [searchOpen, setSearchOpen] = React.useState(false)
+          const [searchQuery, setSearchQuery] = React.useState('')
+          const [searchCursor, setSearchCursor] = React.useState(0)
+          const pendingAnchor = React.useRef(null)
           const data = inventory.data
+          const searchResults = data && searchOpen ? querySearch(buildSearchIndex(data, briefPick), searchQuery) : []
 
           // Detect the opener after mount, never during apply: touching the Remote
           // before the client services settle used to abort the whole plugin.
@@ -959,6 +1045,28 @@ window.__ModuleLoader__.load({
             }
           }, [])
 
+          React.useEffect(() => {
+            const onKeyDown = (event) => {
+              if (event.key !== '/' || event.metaKey || event.ctrlKey || event.altKey) return
+              const target = event.target
+              const tag = target && target.tagName ? String(target.tagName).toLowerCase() : ''
+              if (tag === 'input' || tag === 'textarea' || (target && target.isContentEditable)) return
+              event.preventDefault()
+              setSearchQuery('')
+              setSearchCursor(0)
+              setSearchOpen(true)
+            }
+            window.addEventListener('keydown', onKeyDown)
+            return () => window.removeEventListener('keydown', onKeyDown)
+          }, [])
+
+          React.useEffect(() => {
+            if (!pendingAnchor.current) return
+            const anchor = pendingAnchor.current
+            pendingAnchor.current = null
+            revealAnchor(anchor)
+          }, [data])
+
           const toggleBlock = (id) => setOpenBlocks((previous) => ({ ...previous, [id]: !previous[id] }))
           const toggleSection = (id) => setOpenSections((previous) => ({ ...previous, [id]: !previous[id] }))
           const pickWorkspace = (name) => {
@@ -976,6 +1084,51 @@ window.__ModuleLoader__.load({
               'ws:mcp': true,
             }))
           }
+          const closeSearch = () => {
+            setSearchOpen(false)
+            setSearchQuery('')
+            setSearchCursor(0)
+          }
+
+          const openSearch = () => {
+            setSearchQuery('')
+            setSearchCursor(0)
+            setSearchOpen(true)
+          }
+
+          const revealAnchor = (anchor) => {
+            if (!anchor || typeof document === 'undefined') return
+            const frame = typeof requestAnimationFrame === 'function' ? requestAnimationFrame : (fn) => setTimeout(fn, 16)
+            frame(() => {
+              const nodes = document.querySelectorAll('[data-anchor]')
+              for (const node of nodes) {
+                if (node.getAttribute('data-anchor') !== anchor) continue
+                if (typeof node.scrollIntoView === 'function') node.scrollIntoView({ block: 'center' })
+                node.classList.add('dmp-flash')
+                setTimeout(() => node.classList.remove('dmp-flash'), 2000)
+                break
+              }
+            })
+          }
+
+          const activateResult = (item) => {
+            if (!item) return
+            closeSearch()
+            const workspace = String(item.workspace || '')
+            const anchor = anchorKey(item.kind, workspace, item.name)
+            const sectionId = { memory: 'ws:memory', skill: 'ws:skills', mcp: 'ws:mcp' }[item.kind]
+            setOpenBlocks((previous) => ({ ...previous, global: false, workspace: true }))
+            setOpenSections((previous) => (sectionId ? { ...previous, [sectionId]: true } : previous))
+            const list = (data && data.workspaces) || []
+            const target = workspace ? list.find((ws) => ws.name === workspace) : null
+            if (target && workspace !== briefPick) {
+              pendingAnchor.current = anchor
+              pickWorkspace(workspace)
+              return
+            }
+            revealAnchor(anchor)
+          }
+
           const toggleMemoryWorkspace = (name) =>
             setOpenMemoryWorkspaces((previous) => ({ ...previous, [name]: !previous[name] }))
           const toggleRow = (id) => setOpenRows((previous) => ({ ...previous, [id]: !previous[id] }))
@@ -1209,11 +1362,16 @@ window.__ModuleLoader__.load({
                 ]),
               })
 
-            const memoryRow = (file, depth) => {
+            const memoryRow = (file, depth, workspace) => {
               const target = joinPath(file.dir, file.name)
               return h(
                 'div',
-                { className: 'dmp-file dmp-indent-' + depth, key: (file.dir || '') + '|' + file.name, title: target },
+                {
+                  className: 'dmp-file dmp-indent-' + depth,
+                  key: (file.dir || '') + '|' + file.name,
+                  title: target,
+                  'data-anchor': anchorKey('memory', workspace, file.name),
+                },
                 h('span', { className: 'dmp-file-name' }, file.name),
                 h('span', { className: 'dmp-file-meta' }, bytes(file.bytes) + ' · ' + shortDate(file.mtime)),
                 h(
@@ -1229,12 +1387,13 @@ window.__ModuleLoader__.load({
               )
             }
 
-            const skillRow = (skill, depth) => {
+            const skillRow = (skill, depth, workspace) => {
               const source = skill.source || skill.label || (skill.scope === 'global' ? 'global' : 'workspace')
               const key = skill.path || 'effective:' + skill.name
               return h(Row, {
                 key,
                 id: 'skill-' + key,
+                anchor: anchorKey('skill', skill.workspace || workspace, skill.name),
                 name: skill.name,
                 secondary: skill.desc || '—',
                 meta: skill.bytes ? bytes(skill.bytes) : source,
@@ -1251,11 +1410,12 @@ window.__ModuleLoader__.load({
               })
             }
 
-            const mcpRow = (server, depth) => {
+            const mcpRow = (server, depth, workspace) => {
               const key = (server.row || server.server) + '|' + (server.target || '')
               return h(Row, {
                 key,
                 id: 'mcp-' + key,
+                anchor: anchorKey('mcp', workspace, server.server || server.row),
                 name: (server.server || server.row) + ' · ' + (server.transport || '?'),
                 secondary: server.target || '—',
                 meta: server.sourceKind === 'external' ? t('mcp.external') : server.presetId || '',
@@ -1492,7 +1652,7 @@ window.__ModuleLoader__.load({
                         2,
                       )
                     : null,
-                  ...globalMemory.files.slice(0, 30).map((file) => memoryRow(file, 2)),
+                  ...globalMemory.files.slice(0, 30).map((file) => memoryRow(file, 2, '')),
                   !globalRules.exists && !globalMemory.count ? emptyLine(t('memory.empty'), 2) : null,
                 ],
               ),
@@ -1503,7 +1663,7 @@ window.__ModuleLoader__.load({
                 1,
                 filteredGlobalSkills.length
                   ? [
-                      ...filteredGlobalSkills.map((skill) => skillRow(skill, 2)),
+                      ...filteredGlobalSkills.map((skill) => skillRow(skill, 2, '')),
                       warningLines(warningsFor('extraSkillRoots'), 'global-skill-warning-'),
                     ]
                   : [emptyLine(skillQuery ? t('skills.noMatch') : t('skills.globalEmpty'), 2)],
@@ -1516,7 +1676,7 @@ window.__ModuleLoader__.load({
                 1,
                 globalMcp.length
                   ? [
-                      ...globalMcp.map((server) => mcpRow(server, 2)),
+                      ...globalMcp.map((server) => mcpRow(server, 2, '')),
                       ...warnings.map((warning, index) =>
                         h('div', { className: 'dmp-warning dmp-indent-2', key: 'global-mcp-warning-' + index }, warning),
                       ),
@@ -1547,7 +1707,7 @@ window.__ModuleLoader__.load({
                       ...(selectedEntry.rules || []).map((rule) => ruleRow(rule, 2)),
                       ...((selectedEntry.memory && selectedEntry.memory.files) || [])
                         .slice(0, 50)
-                        .map((file) => memoryRow(file, 2)),
+                        .map((file) => memoryRow(file, 2, selectedEntry.name)),
                       (selectedEntry.rules || []).length === 0 && !(selectedEntry.memory && selectedEntry.memory.count)
                         ? emptyLine(t('memory.empty'), 2)
                         : null,
@@ -1559,7 +1719,7 @@ window.__ModuleLoader__.load({
                     workspaceSkills.length,
                     1,
                     filteredWorkspaceSkills.length
-                      ? filteredWorkspaceSkills.map((skill) => skillRow(skill, 2))
+                      ? filteredWorkspaceSkills.map((skill) => skillRow(skill, 2, selectedEntry.name))
                       : [emptyLine(skillQuery ? t('skills.noMatch') : t('skills.workspaceEmpty'), 2)],
                     skillFilterExtra(filteredWorkspaceSkills.length, workspaceSkills.length),
                   ),
@@ -1570,7 +1730,7 @@ window.__ModuleLoader__.load({
                     1,
                     projectMcp.length
                       ? [
-                          ...projectMcp.map((server) => mcpRow(server, 2)),
+                          ...projectMcp.map((server) => mcpRow(server, 2, selectedEntry.name)),
                           projectMcp.some((server) => server.sourceKind === 'external')
                             ? h('div', { className: 'dmp-warning dmp-indent-2', key: 'ext-mcp' }, t('mcp.externalHint'))
                             : null,
@@ -1693,6 +1853,15 @@ window.__ModuleLoader__.load({
                     {
                       className: 'dmp-btn',
                       type: 'button',
+                      onClick: openSearch,
+                    },
+                    t('search.open'),
+                  ),
+                  h(
+                    'button',
+                    {
+                      className: 'dmp-btn',
+                      type: 'button',
                       onClick: inventory.reload,
                       disabled: inventory.status === 'loading',
                     },
@@ -1702,6 +1871,81 @@ window.__ModuleLoader__.load({
               ),
               body,
             ),
+            searchOpen
+              ? h(
+                  'div',
+                  {
+                    className: 'dmp-search',
+                    onMouseDown: (event) => {
+                      if (event.target === event.currentTarget) closeSearch()
+                    },
+                    onKeyDown: (event) => {
+                      if (event.key === 'Escape') closeSearch()
+                    },
+                  },
+                  h(
+                    'div',
+                    { className: 'dmp-search-panel' },
+                    h('input', {
+                      className: 'dmp-search-input',
+                      type: 'search',
+                      autoFocus: true,
+                      value: searchQuery,
+                      placeholder: t('search.placeholder'),
+                      'aria-label': t('search.placeholder'),
+                      onChange: (event) => {
+                        setSearchQuery(event.target.value)
+                        setSearchCursor(0)
+                      },
+                      onKeyDown: (event) => {
+                        if (event.key === 'Escape') {
+                          event.preventDefault()
+                          closeSearch()
+                          return
+                        }
+                        if (event.key === 'ArrowDown') {
+                          event.preventDefault()
+                          setSearchCursor((cursor) => Math.min(cursor + 1, Math.max(0, searchResults.length - 1)))
+                          return
+                        }
+                        if (event.key === 'ArrowUp') {
+                          event.preventDefault()
+                          setSearchCursor((cursor) => Math.max(0, cursor - 1))
+                          return
+                        }
+                        if (event.key === 'Enter') {
+                          event.preventDefault()
+                          const item = searchResults[searchCursor]
+                          if (item) activateResult(item)
+                        }
+                      },
+                    }),
+                    h(
+                      'div',
+                      { className: 'dmp-search-list' },
+                      searchQuery.trim() === ''
+                        ? h('div', { className: 'dmp-search-empty' }, t('search.empty'))
+                        : searchResults.length === 0
+                          ? h('div', { className: 'dmp-search-empty' }, t('search.noMatch'))
+                          : searchResults.slice(0, 50).map((item, index) =>
+                              h(
+                                'button',
+                                {
+                                  key: index + '|' + item.kind + '|' + item.workspace + '|' + item.name,
+                                  type: 'button',
+                                  className: 'dmp-search-row' + (index === searchCursor ? ' is-active' : ''),
+                                  onMouseEnter: () => setSearchCursor(index),
+                                  onClick: () => activateResult(item),
+                                },
+                                h('span', { className: 'dmp-search-kind' }, t('search.kind.' + item.kind)),
+                                h('span', { className: 'dmp-search-name' }, item.name),
+                                h('span', { className: 'dmp-search-detail' }, item.detail || item.workspace || ''),
+                              ),
+                            ),
+                    ),
+                  ),
+                )
+              : null,
           )
         }
 

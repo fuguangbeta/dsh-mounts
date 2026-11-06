@@ -276,6 +276,7 @@ test('panel smoke: the ready state starts with no workspace picked', () => {
   const output = renderTree(ReactStub.createElement(page, {}))
   assert.match(output, /挂载清单/)
   assert.match(output, /生成于/)
+  assert.match(output, /全局搜索/)
   assert.match(output, /未选择工作区（可搜索全部）/)
   assert.doesNotMatch(output, /alpha/)
 })
@@ -289,4 +290,89 @@ test('panel smoke: a render error becomes one readable line with retry', () => {
   const output = renderTree(instance.render())
   assert.match(output, /面板渲染失败：boom/)
   assert.match(output, /重试/)
+})
+
+const searchSnapshot = {
+  skills: [
+    {
+      name: 'alpha-skill',
+      scope: 'workspace',
+      workspace: 'alpha',
+      workspacePath: 'D:\\ws\\alpha',
+      path: 'D:\\ws\\alpha\\.dsh\\skills\\alpha-skill\\SKILL.md',
+      source: 'project',
+    },
+    {
+      name: 'beta-skill',
+      scope: 'workspace',
+      workspace: 'beta',
+      workspacePath: 'D:\\ws\\beta',
+      path: 'D:\\ws\\beta\\.dsh\\skills\\beta-skill\\SKILL.md',
+      source: 'project',
+    },
+    { name: 'global-skill', scope: 'global', path: 'C:\\skills\\global\\SKILL.md' },
+  ],
+  workspaces: [
+    {
+      name: 'alpha',
+      path: 'D:\\ws\\alpha',
+      memory: {
+        files: [
+          {
+            name: 'MEMORY.md',
+            dir: 'D:\\ws\\alpha\\.dsh\\memory',
+            realPath: 'D:\\ws\\alpha\\.dsh\\memory\\MEMORY.md',
+          },
+        ],
+      },
+      projectMcp: [{ server: 'codegraph', target: 'D:\\ws\\alpha\\.mcp.json' }],
+    },
+    {
+      name: 'beta',
+      path: 'D:\\ws\\beta',
+      memory: { files: [{ name: 'notes.md', dir: 'D:\\ws\\beta\\.dsh\\memory' }] },
+      projectMcp: [],
+    },
+  ],
+  globalMemory: { files: [{ name: 'global.md' }] },
+}
+
+const searchIndexAll = helpers.buildSearchIndex(searchSnapshot, '')
+
+test('buildSearchIndex covers every workspace when none is selected', () => {
+  const keys = searchIndexAll.map((item) => item.kind + ':' + item.workspace + ':' + item.name).sort()
+  assert.deepEqual(keys, [
+    'mcp:alpha:codegraph',
+    'memory:alpha:MEMORY.md',
+    'memory:beta:notes.md',
+    'skill:alpha:alpha-skill',
+    'skill:beta:beta-skill',
+  ])
+})
+
+test('buildSearchIndex narrows to the selected workspace only', () => {
+  const index = helpers.buildSearchIndex(searchSnapshot, 'alpha')
+  assert.ok(index.length > 0)
+  assert.ok(index.every((item) => item.workspace === 'alpha'))
+  assert.deepEqual(index.map((item) => item.name).sort(), ['MEMORY.md', 'alpha-skill', 'codegraph'])
+})
+
+test('querySearch matches a path substring', () => {
+  const hits = helpers.querySearch(searchIndexAll, 'D:\\ws\\beta')
+  const names = hits.map((item) => item.name).sort()
+  assert.deepEqual(names, ['beta-skill', 'notes.md'])
+})
+
+test('querySearch is case-insensitive', () => {
+  const names = helpers.querySearch(searchIndexAll, 'CODE').map((item) => item.name)
+  assert.deepEqual(names, ['codegraph'])
+})
+
+test('querySearch returns an empty list for a blank query', () => {
+  assert.deepEqual(helpers.querySearch(searchIndexAll, ''), [])
+  assert.deepEqual(helpers.querySearch(searchIndexAll, '   '), [])
+})
+
+test('querySearch returns an empty list when nothing matches', () => {
+  assert.deepEqual(helpers.querySearch(searchIndexAll, 'zzz'), [])
 })
