@@ -83,7 +83,7 @@ window.__ModuleLoader__.load({
       'mcp.configured': '配置',
       'mcp.externalHint': '.mcp.json 是外部格式，DSH 不会挂载；要挂载请用 .dsh/mcp.json。',
       'workspace.empty': '未注册工作区',
-      'workspace.none': '未选择工作区（可搜索全部）',
+      'picker.choose': '选择',
       'search.open': '全局搜索',
       'search.placeholder': '搜索技能、记忆与 MCP',
       'search.empty': '输入以搜索技能、记忆与 MCP',
@@ -123,8 +123,6 @@ window.__ModuleLoader__.load({
       'skills.workspace': '工作区技能',
       'skills.globalEmpty': '未发现全局技能。',
       'skills.workspaceEmpty': '未发现工作区技能。',
-      'skills.filter': '筛选技能',
-      'skills.noMatch': '无匹配技能',
       'mcp.empty': '未发现 MCP 服务器行。',
       'common.generated': '生成于',
     }
@@ -191,7 +189,7 @@ window.__ModuleLoader__.load({
       'mcp.configured': 'configured',
       'mcp.externalHint': '.mcp.json is an external format; DSH does not mount it. Use .dsh/mcp.json instead.',
       'workspace.empty': 'No registered workspace',
-      'workspace.none': 'No workspace selected (search to pick one)',
+      'picker.choose': 'Choose',
       'search.open': 'Search',
       'search.placeholder': 'Search skills, memory, and MCP',
       'search.empty': 'Type to search skills, memory, and MCP',
@@ -231,8 +229,6 @@ window.__ModuleLoader__.load({
       'skills.workspace': 'Workspace skills',
       'skills.globalEmpty': 'No global skills found.',
       'skills.workspaceEmpty': 'No workspace skills found.',
-      'skills.filter': 'Filter skills',
-      'skills.noMatch': 'No matching skills',
       'mcp.empty': 'No MCP server rows found.',
       'common.generated': 'Generated',
     }
@@ -280,12 +276,6 @@ window.__ModuleLoader__.load({
 .dmp-mem-count{font-variant-numeric:tabular-nums;}
 .dmp-mem-latest{margin-left:auto;font-variant-numeric:tabular-nums;white-space:nowrap;}
 .dmp-mem-body{border-top:1px solid var(--dsw-alias-border-l1);}
-.dmp-group-head{display:flex;align-items:center;gap:8px;}
-.dmp-group-head .dmp-mem-head{flex:1;min-width:0;width:auto;}
-.dmp-skill-hits{flex:none;font-size:11px;color:var(--dsw-alias-label-secondary);font-variant-numeric:tabular-nums;white-space:nowrap;}
-.dmp-skill-filter{flex:none;width:150px;box-sizing:border-box;border:1px solid var(--dsw-alias-border-l1);border-radius:8px;background:var(--dsw-alias-bg-layer-2);color:var(--dsw-alias-label-primary);font:inherit;font-size:11px;line-height:18px;padding:3px 8px;}
-.dmp-skill-filter:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:2px;}
-.dmp-skill-filter::placeholder{color:var(--dsw-alias-label-secondary);}
 .dmp-file{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:12px;padding-block:3px;padding-right:16px;font-size:11.5px;line-height:1.6;}
 .dmp-file.dmp-rule-row{grid-template-columns:minmax(0,1fr) auto auto auto;gap:12px;padding-block:3px;padding-right:16px;font-size:11.5px;line-height:1.6;}
 .dmp-file-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--dsw-alias-label-primary);}
@@ -410,17 +400,6 @@ window.__ModuleLoader__.load({
         '- ',
         '',
       ].join('\n')
-    }
-
-    function filterSkills(items, query) {
-      const needle = String(query == null ? '' : query).trim().toLowerCase()
-      if (!needle) return items
-      return items.filter((item) => {
-        const name = String((item && item.name) || '').toLowerCase()
-        const source = String((item && item.source) || '').toLowerCase()
-        const where = String((item && item.path) || '').toLowerCase()
-        return name.includes(needle) || source.includes(needle) || where.includes(needle)
-      })
     }
 
     function filterWorkspaces(items, query) {
@@ -574,7 +553,7 @@ window.__ModuleLoader__.load({
       return h(
         'div',
         { className: 'dmp-group' },
-        props.extra ? h('div', { className: 'dmp-group-head' }, head, props.extra) : head,
+        head,
         h(
           'div',
           {
@@ -816,7 +795,7 @@ window.__ModuleLoader__.load({
               setOpen(true)
             },
           },
-          h('span', { className: 'dmp-picker-label' }, selected ? selected.name : '—'),
+          h('span', { className: 'dmp-picker-label' }, selected ? selected.name : props.placeholder),
           h('span', { className: 'dmp-picker-caret', 'aria-hidden': true }, '▾'),
         ),
         menu && ReactDOM && typeof ReactDOM.createPortal === 'function'
@@ -856,7 +835,6 @@ window.__ModuleLoader__.load({
         bytes,
         mcpCountText,
         handoffTemplate,
-        filterSkills,
         filterWorkspaces,
         buildSearchIndex,
         querySearch,
@@ -1003,7 +981,7 @@ window.__ModuleLoader__.load({
 
         function MountsPage() {
           const t = useTranslate()
-          const [openBlocks, setOpenBlocks] = React.useState({ global: true })
+          const [openBlocks, setOpenBlocks] = React.useState({})
           const [openSections, setOpenSections] = React.useState({})
           const [briefPick, setBriefPick] = React.useState('')
           const inventory = useInventory(briefPick)
@@ -1017,7 +995,6 @@ window.__ModuleLoader__.load({
           const [handoffSaving, setHandoffSaving] = React.useState(false)
           const handoffInputRef = React.useRef(null)
           const [canOpen, setCanOpen] = React.useState(false)
-          const [skillQuery, setSkillQuery] = React.useState('')
           const [searchOpen, setSearchOpen] = React.useState(false)
           const [searchQuery, setSearchQuery] = React.useState('')
           const [searchCursor, setSearchCursor] = React.useState(0)
@@ -1072,17 +1049,15 @@ window.__ModuleLoader__.load({
           const pickWorkspace = (name) => {
             setBriefPick(name)
             setHandoffDraft(null)
-            // Manual pick only: open the workspace root and its four rows, and
-            // close the global tree back to its default. Nothing watches
-            // briefPick, so a later manual collapse is never overridden.
-            setOpenBlocks((previous) => ({ ...previous, global: false, workspace: true }))
-            setOpenSections((previous) => ({
-              ...previous,
-              'ws:brief': true,
-              'ws:memory': true,
-              'ws:skills': true,
-              'ws:mcp': true,
-            }))
+            // Manual pick only: reset the whole expansion state to layer one.
+            // Merging into previous state used to leave stale row details and
+            // group opens from the previous workspace behind.
+            setOpenBlocks({ workspace: true })
+            setOpenSections({ 'ws:brief': true, 'ws:memory': true, 'ws:skills': true, 'ws:mcp': true })
+            setOpenRows({})
+            setOpenMemoryWorkspaces({})
+            setOpenSkillsScope({})
+            setOpenSkillWorkspaces({})
           }
           const closeSearch = () => {
             setSearchOpen(false)
@@ -1279,22 +1254,6 @@ window.__ModuleLoader__.load({
                     (skill.workspacePath === selectedEntry.path || skill.workspace === selectedEntry.name),
                 )
               : []
-            const filteredGlobalSkills = filterSkills(globalSkills, skillQuery)
-            const filteredWorkspaceSkills = filterSkills(workspaceSkills, skillQuery)
-            const skillFilterExtra = (hits, total) => [
-              skillQuery
-                ? h('span', { key: 'skill-hits', className: 'dmp-skill-hits' }, hits + ' / ' + total)
-                : null,
-              h('input', {
-                key: 'skill-filter',
-                className: 'dmp-skill-filter',
-                type: 'search',
-                value: skillQuery,
-                placeholder: t('skills.filter'),
-                'aria-label': t('skills.filter'),
-                onChange: (event) => setSkillQuery(event.target.value),
-              }),
-            ]
             const globalMemory =
               data.globalMemory && Array.isArray(data.globalMemory.files)
                 ? data.globalMemory
@@ -1458,7 +1417,7 @@ window.__ModuleLoader__.load({
                 ],
               })
 
-            const section = (id, label, count, depth, children, extra) =>
+            const section = (id, label, count, depth, children) =>
               h(
                 Group,
                 {
@@ -1469,7 +1428,6 @@ window.__ModuleLoader__.load({
                   depth,
                   open: Boolean(openSections[id]),
                   onToggle: () => toggleSection(id),
-                  extra,
                 },
                 children,
               )
@@ -1661,13 +1619,12 @@ window.__ModuleLoader__.load({
                 t('section.skills'),
                 globalSkills.length,
                 1,
-                filteredGlobalSkills.length
+                globalSkills.length
                   ? [
-                      ...filteredGlobalSkills.map((skill) => skillRow(skill, 2, '')),
+                      ...globalSkills.map((skill) => skillRow(skill, 2, '')),
                       warningLines(warningsFor('extraSkillRoots'), 'global-skill-warning-'),
                     ]
-                  : [emptyLine(skillQuery ? t('skills.noMatch') : t('skills.globalEmpty'), 2)],
-                skillFilterExtra(filteredGlobalSkills.length, globalSkills.length),
+                  : [emptyLine(t('skills.globalEmpty'), 2)],
               ),
               section(
                 'global:mcp',
@@ -1718,10 +1675,9 @@ window.__ModuleLoader__.load({
                     t('section.skills'),
                     workspaceSkills.length,
                     1,
-                    filteredWorkspaceSkills.length
-                      ? filteredWorkspaceSkills.map((skill) => skillRow(skill, 2, selectedEntry.name))
-                      : [emptyLine(skillQuery ? t('skills.noMatch') : t('skills.workspaceEmpty'), 2)],
-                    skillFilterExtra(filteredWorkspaceSkills.length, workspaceSkills.length),
+                    workspaceSkills.length
+                      ? workspaceSkills.map((skill) => skillRow(skill, 2, selectedEntry.name))
+                      : [emptyLine(t('skills.workspaceEmpty'), 2)],
                   ),
                   section(
                     'ws:mcp',
@@ -1798,9 +1754,7 @@ window.__ModuleLoader__.load({
                 Block,
                 {
                   id: 'workspace',
-                  title: selectedEntry
-                    ? t('root.workspace')
-                    : t('root.workspace') + ' · ' + (workspaces.length ? t('workspace.none') : t('workspace.empty')),
+                  title: t('root.workspace'),
                   count: workspaceItemCount,
                   action: workspaces.length
                     ? h(WorkspacePicker, {
@@ -1809,6 +1763,7 @@ window.__ModuleLoader__.load({
                         value: selectedEntry ? selectedEntry.name : '',
                         onChange: pickWorkspace,
                         ariaLabel: t('root.workspace'),
+                        placeholder: t('picker.choose'),
                         filterPlaceholder: t('picker.filter'),
                         emptyText: t('picker.noMatch'),
                       })

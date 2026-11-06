@@ -98,33 +98,6 @@ test('handoffTemplate uses the active dictionary', () => {
   assert.match(text, /^## Next step$/m)
 })
 
-const skillItems = [
-  { name: 'Gamma', source: 'builtin', path: 'D:\\proj\\.dsh\\skills\\gamma\\SKILL.md', desc: 'noise' },
-  { name: 'alpha', source: 'workspace', path: 'D:\\proj\\.dsh\\skills\\alpha\\SKILL.md' },
-  { name: 'MemWise', source: 'user', path: 'C:\\users\\me\\.dsh\\skills\\memwise\\SKILL.md' },
-]
-
-test('filterSkills returns everything in order for a blank query', () => {
-  assert.equal(helpers.filterSkills(skillItems, ''), skillItems)
-  assert.equal(helpers.filterSkills(skillItems, '   '), skillItems)
-  assert.equal(helpers.filterSkills(skillItems, null), skillItems)
-})
-
-test('filterSkills matches names case-insensitively', () => {
-  assert.deepEqual(helpers.filterSkills(skillItems, 'ALPHA'), [skillItems[1]])
-  assert.deepEqual(helpers.filterSkills(skillItems, 'mem'), [skillItems[2]])
-})
-
-test('filterSkills matches source paths', () => {
-  assert.deepEqual(helpers.filterSkills(skillItems, 'gamma\\skill'), [skillItems[0]])
-  assert.deepEqual(helpers.filterSkills(skillItems, 'C:\\USERS\\ME'), [skillItems[2]])
-})
-
-test('filterSkills ignores descriptions and returns an empty list when nothing matches', () => {
-  assert.deepEqual(helpers.filterSkills(skillItems, 'noise'), [])
-  assert.deepEqual(helpers.filterSkills(skillItems, 'zzz'), [])
-})
-
 const workspaceItems = [
   { name: 'dsh-mounts', path: 'D:\\我的文件\\dsh-mounts' },
   { name: 'memwise', path: 'D:\\我的文件\\memwise' },
@@ -195,6 +168,29 @@ function renderTree(node) {
     return renderTree(type(props))
   }
   return renderTree(props.children)
+}
+
+function collectFlags(node, out = []) {
+  if (node === null || node === undefined || typeof node === 'boolean') return out
+  if (typeof node === 'string' || typeof node === 'number') return out
+  if (Array.isArray(node)) {
+    for (const child of node) collectFlags(child, out)
+    return out
+  }
+  const props = node.props || {}
+  if ('aria-expanded' in props) out.push(props['aria-expanded'])
+  const type = node.type
+  if (typeof type === 'function') {
+    if (type.prototype && typeof type.prototype.render === 'function') {
+      const instance = new type(props)
+      collectFlags(instance.render(), out)
+      return out
+    }
+    collectFlags(type(props), out)
+    return out
+  }
+  collectFlags(props.children, out)
+  return out
 }
 
 function mountPanel(readyState) {
@@ -271,14 +267,18 @@ test('panel smoke: the loading state renders without throwing', () => {
   assert.match(output, /读取中/)
 })
 
-test('panel smoke: the ready state starts with no workspace picked', () => {
+test('panel smoke: the ready state starts collapsed with no workspace picked', () => {
   const { page, ReactStub } = mountPanel({ status: 'ready', data: readySnapshot(), error: null })
-  const output = renderTree(ReactStub.createElement(page, {}))
+  const pageElement = ReactStub.createElement(page, {})
+  const output = renderTree(pageElement)
   assert.match(output, /挂载清单/)
   assert.match(output, /生成于/)
   assert.match(output, /全局搜索/)
-  assert.match(output, /未选择工作区（可搜索全部）/)
+  assert.match(output, /选择/)
+  assert.doesNotMatch(output, /可搜索全部/)
   assert.doesNotMatch(output, /alpha/)
+  const expanded = collectFlags(pageElement).filter((value) => value === true)
+  assert.equal(expanded.length, 0, 'nothing should be expanded on first render')
 })
 
 test('panel smoke: a render error becomes one readable line with retry', () => {
