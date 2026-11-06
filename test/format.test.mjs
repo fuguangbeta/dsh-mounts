@@ -147,3 +147,144 @@ test('filterWorkspaces matches path substrings', () => {
 test('filterWorkspaces returns an empty list when nothing matches', () => {
   assert.deepEqual(helpers.filterWorkspaces(workspaceItems, 'zzz'), [])
 })
+
+// --- shallow render smoke: building the panel tree must never throw ---
+
+function makeReactStub(readyState) {
+  const isInventoryState = (value) =>
+    value && typeof value === 'object' && 'status' in value && 'data' in value && 'error' in value
+  return {
+    createElement(type, props, ...children) {
+      const next = Object.assign({}, props || {})
+      if (children.length === 1) next.children = children[0]
+      else if (children.length > 1) next.children = children
+      return { type, props: next }
+    },
+    useState(initial) {
+      let value = typeof initial === 'function' ? initial() : initial
+      if (readyState && isInventoryState(value)) value = readyState
+      return [value, () => {}]
+    },
+    useRef: (current = null) => ({ current }),
+    useEffect: () => {},
+    useMemo: (factory) => factory(),
+    useCallback: (fn) => fn,
+    Component: class Component {
+      constructor(props) {
+        this.props = props
+      }
+      setState(update) {
+        this.state = Object.assign({}, this.state, typeof update === 'function' ? update(this.state) : update)
+      }
+    },
+    Fragment: 'fragment',
+  }
+}
+
+function renderTree(node) {
+  if (node === null || node === undefined || typeof node === 'boolean') return ''
+  if (typeof node === 'string' || typeof node === 'number') return String(node)
+  if (Array.isArray(node)) return node.map(renderTree).join('')
+  const type = node.type
+  const props = node.props || {}
+  if (typeof type === 'function') {
+    if (type.prototype && typeof type.prototype.render === 'function') {
+      const instance = new type(props)
+      return renderTree(instance.render())
+    }
+    return renderTree(type(props))
+  }
+  return renderTree(props.children)
+}
+
+function mountPanel(readyState) {
+  const ReactStub = makeReactStub(readyState)
+  const module = captured.config.factory((name) => {
+    if (name === 'react') return ReactStub
+    throw new Error('unexpected module: ' + name)
+  })
+  let page = null
+  module.apply({
+    inject(services, callback) {
+      callback({})
+      return () => {}
+    },
+    get: () => undefined,
+    locale: {
+      register: () => {},
+      getLocale: () => ({ active: 'zh' }),
+      subscribe: () => () => {},
+    },
+    slots: {
+      inject: (name, factory) => factory(),
+      register: (definition, component) => {
+        if (definition && definition.name === 'main') page = component
+        return () => {}
+      },
+    },
+  })
+  return { page, ReactStub }
+}
+
+function readySnapshot() {
+  const memoryFile = { name: 'MEMORY.md', bytes: 12, mtime: '2026-11-01T00:00:00Z', dir: 'D:\\ws\\alpha\\.dsh\\memory' }
+  return {
+    generatedAt: '2026-11-07T00:00:00Z',
+    profile: { name: 'demo', patch: 'cordis.patch.yml' },
+    globalRules: { exists: true, path: 'C:\\demo\\.dsh\\AGENTS.md', bytes: 120, sections: [{ title: 'a' }, { title: 'b' }] },
+    workspaces: [
+      {
+        name: 'alpha',
+        path: 'D:\\ws\\alpha',
+        brief: '# brief alpha',
+        rules: [],
+        memory: { count: 1, folded: 0, files: [memoryFile], dirs: ['D:\\ws\\alpha\\.dsh\\memory'] },
+        handoff: { preview: 'prev', text: 'text', mtime: '2026-11-06T00:00:00Z', path: 'D:\\ws\\alpha\\.dsh-mounts\\handoff.md' },
+        team: null,
+      },
+      {
+        name: 'beta',
+        path: 'D:\\ws\\beta',
+        brief: '# brief beta',
+        rules: [],
+        memory: { count: 0, folded: 0, files: [], dirs: [] },
+        handoff: null,
+        team: null,
+      },
+    ],
+    skills: [],
+    mcp: [],
+    engines: [],
+    effective: null,
+    globalMemory: { count: 0, files: [] },
+    warnings: [],
+    configWarnings: [],
+    brief: '# default brief',
+    briefWorkspace: 'alpha',
+  }
+}
+
+test('panel smoke: the loading state renders without throwing', () => {
+  const { page, ReactStub } = mountPanel(null)
+  assert.equal(typeof page, 'function')
+  const output = renderTree(ReactStub.createElement(page, {}))
+  assert.match(output, /读取中/)
+})
+
+test('panel smoke: the ready state renders the header and copy button', () => {
+  const { page, ReactStub } = mountPanel({ status: 'ready', data: readySnapshot(), error: null })
+  const output = renderTree(ReactStub.createElement(page, {}))
+  assert.match(output, /复制简报/)
+  assert.match(output, /生成于/)
+})
+
+test('panel smoke: a render error becomes one readable line with retry', () => {
+  const { page } = mountPanel(null)
+  const guard = page({})
+  const Boundary = guard.type
+  const instance = new Boundary({ failLabel: '面板渲染失败', retryLabel: '重试' })
+  instance.state = Boundary.getDerivedStateFromError(new Error('boom'))
+  const output = renderTree(instance.render())
+  assert.match(output, /面板渲染失败：boom/)
+  assert.match(output, /重试/)
+})

@@ -31,6 +31,7 @@ window.__ModuleLoader__.load({
       'panel.loading': '读取中…',
       'panel.error': '读取失败',
       'panel.retry': '重试',
+      'panel.renderFailed': '面板渲染失败',
       'meta.workspaceCount': '工作区 %s 个',
       'meta.patch': '补丁',
       'meta.inferred': '（推断）',
@@ -130,6 +131,7 @@ window.__ModuleLoader__.load({
       'panel.loading': 'Reading…',
       'panel.error': 'Failed to read',
       'panel.retry': 'Retry',
+      'panel.renderFailed': 'Panel render failed',
       'meta.workspaceCount': '%s workspaces',
       'meta.patch': 'Patch',
       'meta.inferred': '(inferred)',
@@ -883,6 +885,37 @@ window.__ModuleLoader__.load({
           )
         }
 
+        // A render error in the page body used to blank the whole panel. The
+        // boundary wraps the page from the slot registration (outside MountsPage),
+        // so even an exception thrown while building its tree becomes one line.
+        class PaneBoundary extends React.Component {
+          constructor(props) {
+            super(props)
+            this.state = { error: null, revision: 0 }
+            this.retry = () =>
+              this.setState((previous) => ({ error: null, revision: (previous.revision || 0) + 1 }))
+          }
+
+          static getDerivedStateFromError(error) {
+            return { error }
+          }
+
+          componentDidCatch() {}
+
+          render() {
+            if (this.state.error) {
+              const message = String((this.state.error && this.state.error.message) || this.state.error)
+              return h(
+                'div',
+                { className: 'dmp-empty' },
+                this.props.failLabel + '：' + message + ' ',
+                h('button', { className: 'dmp-btn', type: 'button', onClick: this.retry }, this.props.retryLabel),
+              )
+            }
+            return h(React.Fragment, { key: this.state.revision }, this.props.children)
+          }
+        }
+
         function MountsPage() {
           const t = useTranslate()
           const [openBlocks, setOpenBlocks] = React.useState({})
@@ -909,6 +942,36 @@ window.__ModuleLoader__.load({
           const copyTimer = React.useRef(null)
           const [skillQuery, setSkillQuery] = React.useState('')
           const data = inventory.data
+
+          // Brief selection lives at the page top so the header actions and the
+          // nested render function read the same values: the copy button needs
+          // briefText even while the body is still loading.
+          const briefWorkspaces = (data && data.workspaces) || []
+          const briefWorkspace = (data && data.briefWorkspace) || ''
+          const brief = data && typeof data.brief === 'string' ? data.brief : ''
+          const defaultBriefName = briefWorkspace || (briefWorkspaces[0] && briefWorkspaces[0].name) || ''
+          const activeBrief = briefWorkspaces.find((entry) => entry.name === (briefPick || defaultBriefName)) || null
+          const briefText = activeBrief ? activeBrief.brief || '' : brief
+          const briefName = activeBrief ? activeBrief.name : defaultBriefName
+
+          const copyBrief = () => {
+            const text = briefText || brief
+            const settle = (state) => {
+              setCopyState(state)
+              if (copyTimer.current) clearTimeout(copyTimer.current)
+              copyTimer.current = setTimeout(() => setCopyState('idle'), 1500)
+            }
+            try {
+              const clipboard = typeof navigator !== 'undefined' ? navigator.clipboard : null
+              if (!clipboard || typeof clipboard.writeText !== 'function') {
+                settle('failed')
+                return
+              }
+              clipboard.writeText(text).then(() => settle('copied'), () => settle('failed'))
+            } catch {
+              settle('failed')
+            }
+          }
 
           // Detect the opener after mount, never during apply: touching the Remote
           // before the client services settle used to abort the whole plugin.
@@ -1043,8 +1106,6 @@ window.__ModuleLoader__.load({
                   h('div', { className: 'dmp-warning dmp-indent-1', key: keyPrefix + index }, warning),
               )
             const profile = data.profile || {}
-            const brief = typeof data.brief === 'string' ? data.brief : ''
-            const briefWorkspace = data.briefWorkspace || ''
             const engines = (Array.isArray(data.engines) ? data.engines : []).filter((engine) => engine.installed)
             const effective = data.effective || null
             const effectiveAvailable = Boolean(effective && effective.available)
@@ -1063,30 +1124,6 @@ window.__ModuleLoader__.load({
                 ? effective.tools.servers.map((server) => server.server)
                 : [],
             )
-            const defaultBriefName = briefWorkspace || (workspaces[0] && workspaces[0].name) || ''
-            const activeBrief =
-              workspaces.find((entry) => entry.name === (briefPick || defaultBriefName)) || null
-            const briefText = activeBrief ? activeBrief.brief || '' : brief
-            const briefName = activeBrief ? activeBrief.name : defaultBriefName
-
-            const copyBrief = () => {
-              const text = briefText || brief
-              const settle = (state) => {
-                setCopyState(state)
-                if (copyTimer.current) clearTimeout(copyTimer.current)
-                copyTimer.current = setTimeout(() => setCopyState('idle'), 1500)
-              }
-              try {
-                const clipboard = typeof navigator !== 'undefined' ? navigator.clipboard : null
-                if (!clipboard || typeof clipboard.writeText !== 'function') {
-                  settle('failed')
-                  return
-                }
-                clipboard.writeText(text).then(() => settle('copied'), () => settle('failed'))
-              } catch {
-                settle('failed')
-              }
-            }
 
             const home = String(globalRules.path || '')
               .replace(/[\\/]\.dsh[\\/]AGENTS\.md$/i, '')
@@ -1730,7 +1767,15 @@ window.__ModuleLoader__.load({
           ),
         )
 
-        ctx.slots.inject('main', () => ctx.slots.register({ name: 'main', key: 'mounts' }, MountsPage))
+        ctx.slots.inject('main', () =>
+          ctx.slots.register({ name: 'main', key: 'mounts' }, function MountsPageGuard() {
+            return h(
+              PaneBoundary,
+              { failLabel: translate('panel.renderFailed'), retryLabel: translate('panel.retry') },
+              h(MountsPage),
+            )
+          }),
+        )
       },
     }
   },
