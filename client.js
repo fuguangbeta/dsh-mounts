@@ -259,13 +259,14 @@ window.__ModuleLoader__.load({
 .dmp-meta-item{display:flex;align-items:baseline;gap:6px;min-width:0;}
 .dmp-meta-key{flex:none;}
 .dmp-meta-value{min-width:0;overflow:hidden;text-overflow:ellipsis;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:11.5px;color:var(--dsw-alias-label-primary);}
-.dmp-block{margin-top:12px;border:1px solid var(--dsw-alias-border-l1);border-radius:12px;background:var(--dsw-alias-bg-layer-1);overflow:hidden;}
-.dmp-block-head{position:relative;display:flex;align-items:center;gap:10px;width:100%;padding-block:12px;padding-right:16px;cursor:pointer;animation:dmp-wipe 320ms cubic-bezier(.2,0,0,1) both;transition:background-color var(--dmp-dur) var(--dmp-ease);}
-.dmp-block-head::after{content:'';position:absolute;inset:0;pointer-events:none;background:linear-gradient(90deg,transparent 0%,rgba(255,255,255,.10) 50%,transparent 100%);background-size:200% 100%;background-position:150% 0;animation:dmp-sheen 320ms cubic-bezier(.2,0,0,1) both;}
-section.dmp-block:nth-of-type(2) .dmp-block-head{animation-delay:60ms;}
+.dmp-block{position:relative;margin-top:12px;border:1px solid var(--dsw-alias-border-l1);border-radius:12px;background:var(--dsw-alias-bg-layer-1);overflow:hidden;animation:dmp-wipe 320ms cubic-bezier(.2,0,0,1) both;}
+.dmp-block-head{display:flex;align-items:center;gap:10px;width:100%;padding-block:12px;padding-right:16px;cursor:pointer;transition:background-color var(--dmp-dur) var(--dmp-ease);}
+.dmp-block::after{content:'';position:absolute;inset:0;pointer-events:none;background:linear-gradient(90deg,transparent 0%,rgba(255,255,255,.10) 50%,transparent 100%);background-size:200% 100%;background-position:150% 0;animation:dmp-sheen 320ms cubic-bezier(.2,0,0,1) both;}
+section.dmp-block:nth-of-type(2){animation-delay:60ms;}
+section.dmp-block:nth-of-type(2)::after{animation-delay:60ms;}
 .dmp-collapse.is-open > .dmp-collapse-inner > .dmp-group > .dmp-mem-head{animation:dmp-wipe 220ms cubic-bezier(.2,0,0,1) both;}
-@media (prefers-reduced-motion: reduce){.dmp-root,.dmp-block-head,.dmp-mem-head{animation:none!important;}}
-@media (prefers-reduced-motion: reduce){.dmp-block-head::after{animation:none!important;}}
+@media (prefers-reduced-motion: reduce){.dmp-root,.dmp-block,.dmp-mem-head{animation:none!important;}}
+@media (prefers-reduced-motion: reduce){.dmp-block::after{animation:none!important;}}
 @media (prefers-reduced-motion: reduce){.dmp-item,.dmp-file,.dmp-empty,.dmp-warning,.dmp-group{animation:none!important;}}
 .dmp-block-head:hover{background:var(--dsw-alias-bg-layer-2);}
 .dmp-block-toggle{display:flex;align-items:center;gap:10px;flex:1;min-width:0;padding:0;background:none;border:0;color:inherit;font:inherit;text-align:left;cursor:pointer;}

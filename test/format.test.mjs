@@ -326,13 +326,24 @@ test('panel smoke: the pane entrance animation is present and motion-safe', () =
   assert.match(output, /\.dmp-root\{animation:dmp-pane-in 180ms ease-out both;\}/)
   assert.match(output, /@keyframes dmp-pane-in\{from\{opacity:0;transform:translateY\(6px\);\}to\{opacity:1;transform:none;\}\}/)
   assert.match(output, /@keyframes dmp-wipe\{from\{clip-path:inset\(0 100% 0 0\);\}to\{clip-path:inset\(0 0 0 0\);\}\}/)
-  assert.ok(output.includes('animation:dmp-wipe 320ms cubic-bezier(.2,0,0,1) both'))
+  assert.ok(
+    output.includes(
+      '.dmp-block{position:relative;margin-top:12px;border:1px solid var(--dsw-alias-border-l1);border-radius:12px;background:var(--dsw-alias-bg-layer-1);overflow:hidden;animation:dmp-wipe 320ms cubic-bezier(.2,0,0,1) both;}',
+    ),
+  )
+  assert.ok(
+    output.includes(
+      '.dmp-block-head{display:flex;align-items:center;gap:10px;width:100%;padding-block:12px;padding-right:16px;cursor:pointer;transition:background-color var(--dmp-dur) var(--dmp-ease);}',
+    ),
+  )
+  assert.ok(!output.includes('.dmp-block-head{position:relative'))
+  assert.ok(output.includes('section.dmp-block:nth-of-type(2){animation-delay:60ms;}'))
+  assert.ok(output.includes('section.dmp-block:nth-of-type(2)::after{animation-delay:60ms;}'))
+  assert.ok(output.includes(".dmp-block::after{content:'';position:absolute;inset:0;pointer-events:none;"))
   assert.ok(output.includes('animation:dmp-sheen 320ms cubic-bezier(.2,0,0,1) both'))
   assert.ok(output.includes('@keyframes dmp-sheen{from{background-position:150% 0;}to{background-position:-50% 0;}}'))
   assert.ok(output.includes('background:linear-gradient(90deg,transparent 0%,rgba(255,255,255,.10) 50%,transparent 100%)'))
   assert.ok(output.includes('pointer-events:none'))
-  assert.ok(output.includes('@media (prefers-reduced-motion: reduce){.dmp-block-head::after{animation:none!important;}}'))
-  assert.ok(output.includes('section.dmp-block:nth-of-type(2) .dmp-block-head{animation-delay:60ms;}'))
   assert.ok(
     output.includes(
       '.dmp-collapse.is-open > .dmp-collapse-inner > .dmp-group > .dmp-mem-head{animation:dmp-wipe 220ms cubic-bezier(.2,0,0,1) both;}',
@@ -340,8 +351,9 @@ test('panel smoke: the pane entrance animation is present and motion-safe', () =
   )
   assert.match(
     output,
-    /prefers-reduced-motion: reduce\)\{\.dmp-root,\.dmp-block-head,\.dmp-mem-head\{animation:none!important;\}\}/,
+    /prefers-reduced-motion: reduce\)\{\.dmp-root,\.dmp-block,\.dmp-mem-head\{animation:none!important;\}\}/,
   )
+  assert.ok(output.includes('@media (prefers-reduced-motion: reduce){.dmp-block::after{animation:none!important;}}'))
   assert.ok(output.includes('animation:dmp-row-in 160ms ease-out both'))
   assert.ok(output.includes('animation-delay:calc(var(--dmp-i,0) * 20ms)'))
   assert.ok(output.includes('.dmp-collapse.is-open > .dmp-collapse-inner > .dmp-item'))
