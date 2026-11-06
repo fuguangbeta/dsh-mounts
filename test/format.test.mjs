@@ -405,30 +405,24 @@ test('querySearch returns an empty list when nothing matches', () => {
   assert.deepEqual(helpers.querySearch(searchIndexAll, 'zzz'), [])
 })
 
-test('workspaceExpansion opens exactly the four sections and no row details', () => {
+test('workspaceExpansion opens only the workspace block', () => {
   const expansion = helpers.workspaceExpansion('alpha')
   assert.deepEqual(expansion.blocks, { workspace: true })
+  assert.deepEqual(expansion.sections, {})
   assert.deepEqual(expansion.rows, {})
-  assert.deepEqual(Object.keys(expansion.sections).sort(), [
-    'ws:alpha:brief',
-    'ws:alpha:mcp',
-    'ws:alpha:memory',
-    'ws:alpha:skills',
-  ])
-  assert.ok(Object.values(expansion.sections).every((value) => value === true))
 })
 
 test('workspaceExpansion keys are scoped per workspace', () => {
-  const alpha = helpers.workspaceExpansion('alpha').sections
-  const beta = helpers.workspaceExpansion('beta').sections
-  assert.equal(Object.keys(alpha).length, 4)
-  assert.ok(Object.keys(alpha).every((key) => key.startsWith('ws:alpha:')))
-  assert.deepEqual(Object.keys(alpha).filter((key) => key in beta), [])
+  const alphaKeys = ['brief', 'memory', 'skills', 'mcp'].map((kind) => helpers.wsSectionId('alpha', kind))
+  const betaKeys = ['brief', 'memory', 'skills', 'mcp'].map((kind) => helpers.wsSectionId('beta', kind))
+  assert.deepEqual(alphaKeys.filter((key) => betaKeys.includes(key)), [])
+  assert.ok(alphaKeys.every((key) => key.startsWith('ws:alpha:')))
+  assert.deepEqual(helpers.workspaceExpansion('alpha').sections, {})
 })
 
-test('panel smoke: a ready workspace renders four expanded sections and no row details', () => {
+test('panel smoke: a ready workspace opens only the block, not the sections', () => {
   // The stub does not run effects or state updates, so this seeds the state the
-  // pick effect would land once the snapshot arrives: block open + four sections.
+  // pick effect would land once the snapshot arrives: block open, sections shut.
   const plan = []
   plan[1] = { workspace: true }
   plan[2] = helpers.workspaceExpansion('alpha').sections
@@ -437,7 +431,7 @@ test('panel smoke: a ready workspace renders four expanded sections and no row d
   const { page, ReactStub } = mountPanel(null, plan)
   const pageElement = ReactStub.createElement(page, {})
   const expanded = collectFlags(pageElement).filter((value) => value === true)
-  assert.equal(expanded.length, 5, 'workspace block plus the four sections')
+  assert.equal(expanded.length, 1, 'only the workspace block should be expanded')
   const output = renderTree(pageElement)
   assert.match(output, /项目简报/)
   assert.match(output, /记忆/)

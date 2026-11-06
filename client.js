@@ -419,15 +419,9 @@ window.__ModuleLoader__.load({
     }
 
     function workspaceExpansion(workspace) {
-      const name = String(workspace || '')
       return {
         blocks: { workspace: true },
-        sections: {
-          [wsSectionId(name, 'brief')]: true,
-          [wsSectionId(name, 'memory')]: true,
-          [wsSectionId(name, 'skills')]: true,
-          [wsSectionId(name, 'mcp')]: true,
-        },
+        sections: {},
         rows: {},
       }
     }
@@ -1032,6 +1026,7 @@ window.__ModuleLoader__.load({
           const searchFieldRef = React.useRef(null)
           const pendingAnchor = React.useRef(null)
           const pendingPick = React.useRef(null)
+          const pendingSection = React.useRef(null)
           const data = inventory.data
           const workspaceReady =
             !briefPick || Boolean(data && String(data.briefWorkspace || '') === briefPick)
@@ -1101,6 +1096,9 @@ window.__ModuleLoader__.load({
             // now, as one replacement so nothing from the previous one survives.
             pendingPick.current = null
             applyWorkspaceExpansion(target)
+            const section = pendingSection.current
+            pendingSection.current = null
+            if (section) setOpenSections((previous) => ({ ...previous, [section]: true }))
           }, [data, briefPick])
 
           React.useEffect(() => {
@@ -1114,6 +1112,7 @@ window.__ModuleLoader__.load({
           const toggleSection = (id) => setOpenSections((previous) => ({ ...previous, [id]: !previous[id] }))
           const pickWorkspace = (name) => {
             setHandoffDraft(null)
+            pendingSection.current = null
             // Re-picking the current workspace does not change state, so it
             // would never reach the data-ready effect; land it right away.
             if (name === briefPick && workspaceReady) {
@@ -1157,6 +1156,7 @@ window.__ModuleLoader__.load({
             if (target && workspace !== briefPick) {
               pendingAnchor.current = anchor
               pickWorkspace(workspace)
+              pendingSection.current = kindSuffix ? wsSectionId(workspace, kindSuffix) : null
               return
             }
             setOpenBlocks((previous) => ({ ...previous, workspace: true }))
