@@ -328,6 +328,8 @@ test('panel smoke: the pane entrance animation is present and motion-safe', () =
   assert.match(output, /prefers-reduced-motion: reduce\)\{\.dmp-root,\.dmp-block-head\{animation:none!important;\}\}/)
   assert.ok(output.includes('animation:dmp-row-in 160ms ease-out both'))
   assert.ok(output.includes('animation-delay:calc(var(--dmp-i,0) * 20ms)'))
+  assert.ok(output.includes('.dmp-collapse.is-open > .dmp-collapse-inner > .dmp-item'))
+  assert.ok(!output.includes('\n.dmp-item,.dmp-file,.dmp-empty,.dmp-warning,.dmp-group{animation:dmp-row-in'))
   assert.ok(output.includes('@media (prefers-reduced-motion: reduce){.dmp-item,.dmp-file,.dmp-empty,.dmp-warning,.dmp-group{animation:none!important;}}'))
 })
 

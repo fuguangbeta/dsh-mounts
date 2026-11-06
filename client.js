@@ -237,7 +237,7 @@ window.__ModuleLoader__.load({
 .dmp-root{--dmp-ease:cubic-bezier(.2,0,0,1);--dmp-dur:170ms;height:100%;overflow:auto;background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-primary);}
 .dmp-root{animation:dmp-pane-in 180ms ease-out both;}
 @keyframes dmp-pane-in{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:none;}}
-.dmp-item,.dmp-file,.dmp-empty,.dmp-warning,.dmp-group{animation:dmp-row-in 160ms ease-out both;animation-delay:calc(var(--dmp-i,0) * 20ms);}
+.dmp-collapse.is-open > .dmp-collapse-inner > .dmp-item,.dmp-collapse.is-open > .dmp-collapse-inner > .dmp-file,.dmp-collapse.is-open > .dmp-collapse-inner > .dmp-empty,.dmp-collapse.is-open > .dmp-collapse-inner > .dmp-warning,.dmp-collapse.is-open > .dmp-collapse-inner > .dmp-group{animation:dmp-row-in 160ms ease-out both;animation-delay:calc(var(--dmp-i,0) * 20ms);}
 @keyframes dmp-row-in{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:none;}}
 @keyframes dmp-enter{from{opacity:0;transform:translateY(3px);}to{opacity:1;transform:none;}}
 .dmp-inner{max-width:1020px;margin:0 auto;padding:30px 34px 76px;}
