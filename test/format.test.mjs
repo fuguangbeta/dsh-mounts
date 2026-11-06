@@ -326,6 +326,9 @@ test('panel smoke: the pane entrance animation is present and motion-safe', () =
   assert.match(output, /\.dmp-root\{animation:dmp-pane-in 180ms ease-out both;\}/)
   assert.match(output, /@keyframes dmp-pane-in\{from\{opacity:0;transform:translateY\(6px\);\}to\{opacity:1;transform:none;\}\}/)
   assert.match(output, /prefers-reduced-motion: reduce\)\{\.dmp-root,\.dmp-block-head\{animation:none!important;\}\}/)
+  assert.ok(output.includes('animation:dmp-row-in 160ms ease-out both'))
+  assert.ok(output.includes('animation-delay:calc(var(--dmp-i,0) * 20ms)'))
+  assert.ok(output.includes('@media (prefers-reduced-motion: reduce){.dmp-item,.dmp-file,.dmp-empty,.dmp-warning,.dmp-group{animation:none!important;}}'))
 })
 
 const searchSnapshot = {

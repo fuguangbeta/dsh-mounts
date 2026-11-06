@@ -229,10 +229,16 @@ window.__ModuleLoader__.load({
       'common.generated': 'Generated',
     }
 
+    function staggerStyle(index) {
+      return { '--dmp-i': Math.min(Number(index) || 0, 6) }
+    }
+
     const CSS = `
 .dmp-root{--dmp-ease:cubic-bezier(.2,0,0,1);--dmp-dur:170ms;height:100%;overflow:auto;background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-primary);}
 .dmp-root{animation:dmp-pane-in 180ms ease-out both;}
 @keyframes dmp-pane-in{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:none;}}
+.dmp-item,.dmp-file,.dmp-empty,.dmp-warning,.dmp-group{animation:dmp-row-in 160ms ease-out both;animation-delay:calc(var(--dmp-i,0) * 20ms);}
+@keyframes dmp-row-in{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:none;}}
 @keyframes dmp-enter{from{opacity:0;transform:translateY(3px);}to{opacity:1;transform:none;}}
 .dmp-inner{max-width:1020px;margin:0 auto;padding:30px 34px 76px;}
 .dmp-head{display:flex;align-items:flex-start;gap:16px;}
@@ -255,6 +261,7 @@ window.__ModuleLoader__.load({
 .dmp-block-head{display:flex;align-items:center;gap:10px;width:100%;padding-block:12px;padding-right:16px;cursor:pointer;animation:dmp-pane-in 180ms ease-out both;transition:background-color var(--dmp-dur) var(--dmp-ease);}
 section.dmp-block:nth-of-type(2) .dmp-block-head{animation-delay:60ms;}
 @media (prefers-reduced-motion: reduce){.dmp-root,.dmp-block-head{animation:none!important;}}
+@media (prefers-reduced-motion: reduce){.dmp-item,.dmp-file,.dmp-empty,.dmp-warning,.dmp-group{animation:none!important;}}
 .dmp-block-head:hover{background:var(--dsw-alias-bg-layer-2);}
 .dmp-block-toggle{display:flex;align-items:center;gap:10px;flex:1;min-width:0;padding:0;background:none;border:0;color:inherit;font:inherit;text-align:left;cursor:pointer;}
 .dmp-block-toggle:focus-visible{outline:2px solid var(--dsw-alias-brand-primary);outline-offset:-2px;}
@@ -613,13 +620,18 @@ section.dmp-block:nth-of-type(2) .dmp-block-head{animation-delay:60ms;}
       const bodyClass = 'dmp-indent-' + (depth + 1)
 
       if (!props.expandable) {
-        return h('div', { className: 'dmp-item static ' + headClass, 'data-anchor': props.anchor || undefined }, text, meta)
+        return h(
+          'div',
+          { className: 'dmp-item static ' + headClass, style: props.style, 'data-anchor': props.anchor || undefined },
+          text,
+          meta,
+        )
       }
 
       const bodyId = 'dmp-row-' + props.id
       return h(
         'div',
-        { className: 'dmp-item expandable', 'data-anchor': props.anchor || undefined },
+        { className: 'dmp-item expandable', style: props.style, 'data-anchor': props.anchor || undefined },
         h(
           'button',
           {
@@ -1372,10 +1384,11 @@ section.dmp-block:nth-of-type(2) .dmp-block-head{animation-delay:60ms;}
             const emptyLine = (text, depth) =>
               h('div', { className: 'dmp-empty dmp-indent-' + depth, key: 'empty-' + depth + '-' + String(text) }, text)
 
-            const ruleRow = (rule, depth) =>
+            const ruleRow = (rule, depth, index) =>
               h(Row, {
                 key: rule.path,
                 id: 'rule-' + rule.path,
+                style: staggerStyle(index),
                 name: rule.file,
                 secondary: bytes(rule.bytes) + ' · ' + (rule.sections || []).length + ' ' + t('label.sections'),
                 mono: true,
@@ -1390,7 +1403,7 @@ section.dmp-block:nth-of-type(2) .dmp-block-head{animation-delay:60ms;}
                 ]),
               })
 
-            const memoryRow = (file, depth, workspace) => {
+            const memoryRow = (file, depth, workspace, index) => {
               const target = joinPath(file.dir, file.name)
               return h(
                 'div',
@@ -1398,6 +1411,7 @@ section.dmp-block:nth-of-type(2) .dmp-block-head{animation-delay:60ms;}
                   className: 'dmp-file dmp-indent-' + depth,
                   key: (file.dir || '') + '|' + file.name,
                   title: target,
+                  style: staggerStyle(index),
                   'data-anchor': anchorKey('memory', workspace, file.name),
                 },
                 h('span', { className: 'dmp-file-name' }, file.name),
@@ -1415,12 +1429,13 @@ section.dmp-block:nth-of-type(2) .dmp-block-head{animation-delay:60ms;}
               )
             }
 
-            const skillRow = (skill, depth, workspace) => {
+            const skillRow = (skill, depth, workspace, index) => {
               const source = skill.source || skill.label || (skill.scope === 'global' ? 'global' : 'workspace')
               const key = skill.path || 'effective:' + skill.name
               return h(Row, {
                 key,
                 id: 'skill-' + key,
+                style: staggerStyle(index),
                 anchor: anchorKey('skill', skill.workspace || workspace, skill.name),
                 name: skill.name,
                 secondary: skill.desc || '—',
@@ -1438,11 +1453,12 @@ section.dmp-block:nth-of-type(2) .dmp-block-head{animation-delay:60ms;}
               })
             }
 
-            const mcpRow = (server, depth, workspace) => {
+            const mcpRow = (server, depth, workspace, index) => {
               const key = (server.row || server.server) + '|' + (server.target || '')
               return h(Row, {
                 key,
                 id: 'mcp-' + key,
+                style: staggerStyle(index),
                 anchor: anchorKey('mcp', workspace, server.server || server.row),
                 name: (server.server || server.row) + ' · ' + (server.transport || '?'),
                 secondary: server.target || '—',
@@ -1462,10 +1478,11 @@ section.dmp-block:nth-of-type(2) .dmp-block-head{animation-delay:60ms;}
               })
             }
 
-            const briefFull = (text, depth) =>
+            const briefFull = (text, depth, index) =>
               h(Row, {
                 key: 'brief-full',
                 id: 'brief-full',
+                style: staggerStyle(index),
                 name: t('brief.full'),
                 secondary: t('brief.hint'),
                 depth,
@@ -1504,6 +1521,7 @@ section.dmp-block:nth-of-type(2) .dmp-block-head{animation-delay:60ms;}
             const globalBriefRows = [
               h(Row, {
                 key: 'g-profile',
+                style: staggerStyle(0),
                 name: 'profile · ' + (profile.name || '—'),
                 secondary: profile.patch || '—',
                 mono: true,
@@ -1511,14 +1529,28 @@ section.dmp-block:nth-of-type(2) .dmp-block-head{animation-delay:60ms;}
               }),
               h(Row, {
                 key: 'g-rules',
+                style: staggerStyle(1),
                 name: t('section.rules'),
                 secondary: globalRules.exists ? '1 · ' + sectionMeta(globalRules) : '—',
                 depth: 2,
               }),
-              h(Row, { key: 'g-skills', name: t('section.skills'), secondary: String(globalSkills.length), depth: 2 }),
-              h(Row, { key: 'g-mcp', name: t('section.mcp'), secondary: String(globalMcp.length), depth: 2 }),
+              h(Row, {
+                key: 'g-skills',
+                style: staggerStyle(2),
+                name: t('section.skills'),
+                secondary: String(globalSkills.length),
+                depth: 2,
+              }),
+              h(Row, {
+                key: 'g-mcp',
+                style: staggerStyle(3),
+                name: t('section.mcp'),
+                secondary: String(globalMcp.length),
+                depth: 2,
+              }),
               h(Row, {
                 key: 'g-engines',
+                style: staggerStyle(4),
                 name: t('section.engines'),
                 secondary: engines.length ? engines.map((engine) => engine.label).join('、') : t('engines.none'),
                 depth: 2,
@@ -1555,30 +1587,35 @@ section.dmp-block:nth-of-type(2) .dmp-block-head{animation-delay:60ms;}
               ? [
                   h(Row, {
                     key: 'w-rules',
+                    style: staggerStyle(0),
                     name: t('section.rules'),
                     secondary: String((selectedEntry.rules || []).length),
                     depth: 2,
                   }),
                   h(Row, {
                     key: 'w-memory',
+                    style: staggerStyle(1),
                     name: t('section.memory'),
                     secondary: String((selectedEntry.memory && selectedEntry.memory.count) || 0),
                     depth: 2,
                   }),
                   h(Row, {
                     key: 'w-skills',
+                    style: staggerStyle(2),
                     name: t('section.skills'),
                     secondary: String(workspaceSkills.length),
                     depth: 2,
                   }),
                   h(Row, {
                     key: 'w-mcp',
+                    style: staggerStyle(3),
                     name: t('section.mcp'),
                     secondary: String(projectMcp.length),
                     depth: 2,
                   }),
                   h(Row, {
                     key: 'w-handoff',
+                    style: staggerStyle(4),
                     name: t('section.handoff'),
                     secondary: selectedEntry.handoff ? selectedEntry.handoff.preview : t('handoff.noneHint'),
                     tag: h(
@@ -1639,6 +1676,7 @@ section.dmp-block:nth-of-type(2) .dmp-block-head{animation-delay:60ms;}
                     ? h(Row, {
                         key: 'w-team',
                         id: 'team',
+                        style: staggerStyle(5),
                         name: t('section.team'),
                         secondary: selectedEntry.team.unknown
                           ? t('team.unparsed')
@@ -1653,6 +1691,7 @@ section.dmp-block:nth-of-type(2) .dmp-block-head{animation-delay:60ms;}
                       })
                     : h(Row, {
                         key: 'w-team',
+                        style: staggerStyle(5),
                         name: t('section.team'),
                         secondary: t('team.none'),
                         depth: 2,
@@ -1677,9 +1716,10 @@ section.dmp-block:nth-of-type(2) .dmp-block-head{animation-delay:60ms;}
                           sections: globalRules.sections,
                         },
                         2,
+                        0,
                       )
                     : null,
-                  ...globalMemory.files.slice(0, 30).map((file) => memoryRow(file, 2, '')),
+                  ...globalMemory.files.slice(0, 30).map((file, index) => memoryRow(file, 2, '', index)),
                   !globalRules.exists && !globalMemory.count ? emptyLine(t('memory.empty'), 2) : null,
                 ],
               ),
@@ -1690,7 +1730,7 @@ section.dmp-block:nth-of-type(2) .dmp-block-head{animation-delay:60ms;}
                 1,
                 globalSkills.length
                   ? [
-                      ...globalSkills.map((skill) => skillRow(skill, 2, '')),
+                      ...globalSkills.map((skill, index) => skillRow(skill, 2, '', index)),
                       warningLines(warningsFor('extraSkillRoots'), 'global-skill-warning-'),
                     ]
                   : [emptyLine(t('skills.globalEmpty'), 2)],
@@ -1702,7 +1742,7 @@ section.dmp-block:nth-of-type(2) .dmp-block-head{animation-delay:60ms;}
                 1,
                 globalMcp.length
                   ? [
-                      ...globalMcp.map((server) => mcpRow(server, 2, '')),
+                      ...globalMcp.map((server, index) => mcpRow(server, 2, '', index)),
                       ...warnings.map((warning, index) =>
                         h('div', { className: 'dmp-warning dmp-indent-2', key: 'global-mcp-warning-' + index }, warning),
                       ),
@@ -1718,7 +1758,7 @@ section.dmp-block:nth-of-type(2) .dmp-block-head{animation-delay:60ms;}
                 : [
                   section(wsSectionId(selectedEntry.name, 'brief'), t('section.brief'), null, 1, [
                     ...wsBriefRows,
-                    briefFull(selectedEntry.brief || '', 2),
+                    briefFull(selectedEntry.brief || '', 2, 6),
                   ]),
                   section(
                     wsSectionId(selectedEntry.name, 'memory'),
@@ -1732,10 +1772,10 @@ section.dmp-block:nth-of-type(2) .dmp-block-head{animation-delay:60ms;}
                     })(),
                     1,
                     [
-                      ...(selectedEntry.rules || []).map((rule) => ruleRow(rule, 2)),
+                      ...(selectedEntry.rules || []).map((rule, index) => ruleRow(rule, 2, index)),
                       ...((selectedEntry.memory && selectedEntry.memory.files) || [])
                         .slice(0, 50)
-                        .map((file) => memoryRow(file, 2, selectedEntry.name)),
+                        .map((file, index) => memoryRow(file, 2, selectedEntry.name, index)),
                       (selectedEntry.rules || []).length === 0 && !(selectedEntry.memory && selectedEntry.memory.count)
                         ? emptyLine(t('memory.empty'), 2)
                         : null,
@@ -1747,7 +1787,7 @@ section.dmp-block:nth-of-type(2) .dmp-block-head{animation-delay:60ms;}
                     workspaceSkills.length,
                     1,
                     workspaceSkills.length
-                      ? workspaceSkills.map((skill) => skillRow(skill, 2, selectedEntry.name))
+                      ? workspaceSkills.map((skill, index) => skillRow(skill, 2, selectedEntry.name, index))
                       : [emptyLine(t('skills.workspaceEmpty'), 2)],
                   ),
                   section(
@@ -1757,7 +1797,7 @@ section.dmp-block:nth-of-type(2) .dmp-block-head{animation-delay:60ms;}
                     1,
                     projectMcp.length
                       ? [
-                          ...projectMcp.map((server) => mcpRow(server, 2, selectedEntry.name)),
+                          ...projectMcp.map((server, index) => mcpRow(server, 2, selectedEntry.name, index)),
                           projectMcp.some((server) => server.sourceKind === 'external')
                             ? h('div', { className: 'dmp-warning dmp-indent-2', key: 'ext-mcp' }, t('mcp.externalHint'))
                             : null,
