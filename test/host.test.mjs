@@ -291,6 +291,79 @@ test('agent/created stays silent when the workspace has nothing to hint', async 
   assert.equal(injected.length, 0)
 })
 
+test('agent/created registers a fixed system prompt section instead of a user message', async () => {
+  const handler = listeners.get('agent/created')
+  const sections = []
+  const injected = []
+  const sp = {
+    section: (definition) => {
+      sections.push(definition)
+      return () => {}
+    },
+    getSectionOrder: (name) => (name === 'DEPLOYMENT_PERSONA_PREFIX' ? 0 : 500),
+  }
+  const agent = {
+    session: { header: { cwd: wsMemoryOnly } },
+    ctx: {
+      get: (name) => (name === 'systemPrompt' ? sp : undefined),
+      effect: (fn) => {
+        fn()
+        return () => {}
+      },
+    },
+    inject: (payload) => injected.push(payload),
+  }
+  await handler({ agent, source: 'startup' })
+  assert.equal(injected.length, 0, 'the user-message fallback must not run')
+  assert.equal(sections.length, 1)
+  const definition = sections[0]
+  assert.equal(definition.name, 'dsh-mounts:hint')
+  assert.equal(definition.interpolate, false)
+  assert.equal(definition.order, 1)
+  assert.match(definition.text, /^本工作区有记忆库：/)
+  assert.match(definition.text, /MEMORY\.md 为索引/)
+  assert.doesNotMatch(definition.text, /个文件|个技能|\d{4}-\d{2}-\d{2}/)
+  await handler({ agent, source: 'resume' })
+  assert.equal(sections.length, 1, 'one registration per agent')
+  assert.equal(injected.length, 0)
+})
+
+test('agent/created falls back to a user message without an agent ctx', async () => {
+  const handler = listeners.get('agent/created')
+  const injected = []
+  const agent = {
+    session: { header: { cwd: wsMemoryOnly } },
+    inject: (payload) => injected.push(payload),
+  }
+  await handler({ agent, source: 'startup' })
+  assert.equal(injected.length, 1)
+  const text = injected[0].content[0].text
+  assert.match(text, /本工作区有记忆库（1 个文件/)
+  assert.match(text, /project_context/)
+})
+
+test('agent/created falls back to a user message when the section throws', async () => {
+  const handler = listeners.get('agent/created')
+  const injected = []
+  const sp = {
+    section: () => {
+      throw new Error('section unavailable')
+    },
+    getSectionOrder: () => 0,
+  }
+  const agent = {
+    session: { header: { cwd: wsMemoryOnly } },
+    ctx: {
+      get: (name) => (name === 'systemPrompt' ? sp : undefined),
+      effect: (fn) => fn(),
+    },
+    inject: (payload) => injected.push(payload),
+  }
+  await handler({ agent, source: 'startup' })
+  assert.equal(injected.length, 1)
+  assert.match(injected[0].content[0].text, /本工作区有记忆库（1 个文件/)
+})
+
 test('handoff preview prefers the 摘要 quote over the first quote', async () => {
   const handler = listeners.get('agent/created')
   const injected = []

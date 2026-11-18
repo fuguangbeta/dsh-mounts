@@ -605,6 +605,24 @@ function workspaceSignal(workspacePath) {
   return { kind: 'none' }
 }
 
+/**
+ * Fixed text for a system-prompt section: path-stable only, no counts, times or
+ * relative ages, so a changing workspace never rewrites the prompt prefix.
+ */
+function systemHintText(signal) {
+  if (!signal) return ''
+  if (signal.kind === 'handoff') {
+    return '本工作区有交接：' + signal.path + '。开工前先读它，再按其中的下一步行动。'
+  }
+  if (signal.kind === 'memory') {
+    return '本工作区有记忆库：' + signal.path + '（MEMORY.md 为索引）。开工可调 project_context。'
+  }
+  if (signal.kind === 'skills') {
+    return '本工作区有项目技能：' + signal.path + '。开工可调 project_context 查看。'
+  }
+  return ''
+}
+
 /** A bounded, agent-readable summary of what this workspace actually mounts. */
 function buildBrief(entry, context) {
   const lines = []
@@ -1420,6 +1438,33 @@ export function apply(ctx, config) {
         if (!cwd || header.origin === 'subagent') return
         const signal = workspaceSignal(cwd)
         if (!signal || signal.kind === 'none') return
+        // Preferred path: a fixed system-prompt section, so context compaction
+        // cannot drop the hint. Registration and the user-message fallback are
+        // mutually exclusive.
+        const agentCtx = agent.ctx && typeof agent.ctx.get === 'function' ? agent.ctx : null
+        if (agentCtx) {
+          let registered = false
+          try {
+            const sp = agentCtx.get('systemPrompt')
+            const text = systemHintText(signal)
+            if (text && sp && typeof sp.section === 'function' && typeof sp.getSectionOrder === 'function') {
+              const anchor = sp.getSectionOrder('DEPLOYMENT_PERSONA_PREFIX')
+              if (Number.isFinite(anchor)) {
+                const order = anchor + 1
+                const register = () => sp.section({ name: 'dsh-mounts:hint', order, text, interpolate: false })
+                if (typeof agentCtx.effect === 'function') agentCtx.effect(register)
+                else register()
+                registered = true
+              }
+            }
+          } catch {
+            registered = false
+          }
+          if (registered) {
+            hintedAgents.add(agent)
+            return
+          }
+        }
         let text = ''
         if (signal.kind === 'handoff') {
           const handoff = signal.handoff
