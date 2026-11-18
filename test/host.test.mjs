@@ -35,6 +35,7 @@ write(
   JSON.stringify({ mcpServers: { external: { command: 'npx', args: ['server'] } } }),
 )
 write(path.join(wsExternal, 'mirror-memory', 'main', 'MEMORY.md'), '# Mirror\n')
+write(path.join(wsExternal, 'HANDOVER.md'), '# Handover\n')
 for (let index = 1; index <= 22; index += 1) {
   const name = 'm' + String(index).padStart(2, '0') + '.md'
   write(path.join(wsMany, 'memory', name), '# Many\n')
@@ -49,6 +50,12 @@ const wsFallback = path.join(root, 'workspace-fallback')
 write(path.join(wsFallback, '.dsh-mounts', 'handoff.md'), '# 交接\n\n> 读者：后来的人\n\n正文\n')
 const wsPeriod = path.join(root, 'workspace-period')
 write(path.join(wsPeriod, '.dsh-mounts', 'handoff.md'), '> 摘要：真实摘要。\n')
+const wsMemoryOnly = path.join(root, 'workspace-memory-only')
+write(path.join(wsMemoryOnly, '.dsh', 'memory', 'MEMORY.md'), '# Memory only\n')
+const wsSkillsOnly = path.join(root, 'workspace-skills-only')
+write(path.join(wsSkillsOnly, '.dsh', 'skills', 'demo', 'SKILL.md'), '# Demo\n')
+const wsSilent = path.join(root, 'workspace-silent')
+mkdirSync(wsSilent, { recursive: true })
 
 const routes = new Map()
 const listeners = new Map()
@@ -166,6 +173,7 @@ test('external .mcp.json is marked external and mirrors are not memory', async (
   assert.equal(entry.projectMcp[0].sourceKind, 'external')
   assert.equal(data.briefWorkspace, 'workspace-external')
   assert.match(data.brief, /## 项目 MCP/)
+  assert.match(data.brief, /疑似交接（未确认）/)
 })
 
 test('unknown workspace is rejected instead of falling back', async () => {
@@ -240,6 +248,47 @@ test('agent/created injects a complete UserMessage', async () => {
   }
   await handler({ agent: subagent, source: 'startup' })
   assert.equal(injected.length, 1)
+})
+
+test('agent/created hints a memory bank when no handoff exists', async () => {
+  const handler = listeners.get('agent/created')
+  const injected = []
+  const agent = {
+    session: { header: { cwd: wsMemoryOnly } },
+    inject: (payload) => injected.push(payload),
+  }
+  await handler({ agent, source: 'startup' })
+  assert.equal(injected.length, 1)
+  const text = injected[0].content[0].text
+  assert.match(text, /本工作区有记忆库（1 个文件/)
+  assert.match(text, /\.dsh[\\/]memory/)
+  assert.doesNotMatch(text, /handoff\.md/)
+})
+
+test('agent/created hints project skills when no handoff or memory exists', async () => {
+  const handler = listeners.get('agent/created')
+  const injected = []
+  const agent = {
+    session: { header: { cwd: wsSkillsOnly } },
+    inject: (payload) => injected.push(payload),
+  }
+  await handler({ agent, source: 'startup' })
+  assert.equal(injected.length, 1)
+  const text = injected[0].content[0].text
+  assert.match(text, /本工作区有项目技能 1 个/)
+  assert.match(text, /\.dsh[\\/]skills/)
+  assert.doesNotMatch(text, /handoff\.md/)
+})
+
+test('agent/created stays silent when the workspace has nothing to hint', async () => {
+  const handler = listeners.get('agent/created')
+  const injected = []
+  const agent = {
+    session: { header: { cwd: wsSilent } },
+    inject: (payload) => injected.push(payload),
+  }
+  await handler({ agent, source: 'startup' })
+  assert.equal(injected.length, 0)
 })
 
 test('handoff preview prefers the 摘要 quote over the first quote', async () => {

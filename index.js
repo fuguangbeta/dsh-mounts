@@ -549,6 +549,62 @@ function readHandoff(workspacePath) {
   return null
 }
 
+/**
+ * Cheap signal for the new-agent hint: handoff > memory > skills > none.
+ * readdir only (at most 5 calls), never stats or reads memory/skills content.
+ * Any error means "absent"; the caller must not be blocked by this.
+ */
+function workspaceSignal(workspacePath) {
+  const handoff = readHandoff(workspacePath)
+  if (handoff && handoff.bytes) return { kind: 'handoff', path: handoff.path, handoff }
+
+  const memoryDirs = ['memory', path.join('.dsh', 'memory'), path.join('.agents', 'memory')]
+  let memoryCount = 0
+  let memoryPath = ''
+  for (const relative of memoryDirs) {
+    const dir = path.join(workspacePath, relative)
+    let entries
+    try {
+      entries = readdirSync(dir, { withFileTypes: true })
+    } catch {
+      continue
+    }
+    let count = 0
+    for (const entry of entries) {
+      if (entry.isFile() && /\.md$/i.test(entry.name)) count += 1
+    }
+    if (count) {
+      memoryCount += count
+      if (!memoryPath) memoryPath = dir
+    }
+  }
+  if (memoryCount) return { kind: 'memory', path: memoryPath, memoryCount }
+
+  const skillDirs = [path.join('.dsh', 'skills'), path.join('.agents', 'skills')]
+  let skillCount = 0
+  let skillPath = ''
+  for (const relative of skillDirs) {
+    const dir = path.join(workspacePath, relative)
+    let entries
+    try {
+      entries = readdirSync(dir, { withFileTypes: true })
+    } catch {
+      continue
+    }
+    let count = 0
+    for (const entry of entries) {
+      if (entry.isDirectory() || entry.isSymbolicLink()) count += 1
+    }
+    if (count) {
+      skillCount += count
+      if (!skillPath) skillPath = dir
+    }
+  }
+  if (skillCount) return { kind: 'skills', path: skillPath, skillCount }
+
+  return { kind: 'none' }
+}
+
 /** A bounded, agent-readable summary of what this workspace actually mounts. */
 function buildBrief(entry, context) {
   const lines = []
@@ -663,6 +719,12 @@ function buildBrief(entry, context) {
   } else {
     lines.push('- 无（写入位置：' + path.join(entry.path, '.dsh-mounts', 'handoff.md') + '）')
   }
+  const suspectHandoffs = [
+    path.join(entry.path, 'HANDOVER.md'),
+    path.join(entry.path, '.dsh', 'HANDOVER.md'),
+    path.join(entry.path, 'memory', 'HANDOVER.md'),
+  ].filter((file) => isFile(file))
+  for (const file of suspectHandoffs) lines.push('- 疑似交接（未确认）：' + file)
   lines.push('')
   lines.push('## 记忆 / 协作引擎')
   const installedEngines = context.engines.filter((engine) => engine.installed)
@@ -1356,30 +1418,44 @@ export function apply(ctx, config) {
         const header = agent.session && agent.session.header
         const cwd = header && header.cwd
         if (!cwd || header.origin === 'subagent') return
-        const handoff = readHandoff(cwd)
-        if (!handoff || !handoff.bytes) return
-        const days = handoffAgeDays(handoff.mtime)
-        const stale = days >= 7 ? '⚠ 交接已 ' + days + ' 天未更新；' : ''
-        const meta = handoff.mtime ? localDateTime(new Date(handoff.mtime)) : ''
-        const preview = handoff.preview
-          ? '；摘要：' + capText(handoff.preview, 80).replace(/[。！？!?]+$/, '')
-          : ''
+        const signal = workspaceSignal(cwd)
+        if (!signal || signal.kind === 'none') return
+        let text = ''
+        if (signal.kind === 'handoff') {
+          const handoff = signal.handoff
+          const days = handoffAgeDays(handoff.mtime)
+          const stale = days >= 7 ? '⚠ 交接已 ' + days + ' 天未更新；' : ''
+          const meta = handoff.mtime ? localDateTime(new Date(handoff.mtime)) : ''
+          const preview = handoff.preview
+            ? '；摘要：' + capText(handoff.preview, 80).replace(/[。！？!?]+$/, '')
+            : ''
+          text =
+            '[dsh-mounts] ' +
+            stale +
+            '项目交接：' +
+            handoff.path +
+            (meta ? '（' + meta + '）' : '') +
+            preview +
+            '。开工前先 read 它；这里只是创建时快照，不是交接正文。'
+        } else if (signal.kind === 'memory') {
+          text =
+            '[dsh-mounts] 本工作区有记忆库（' +
+            signal.memoryCount +
+            ' 个文件，' +
+            signal.path +
+            '），开工可调 project_context 或读 MEMORY.md；这里不是正文。'
+        } else {
+          text =
+            '[dsh-mounts] 本工作区有项目技能 ' +
+            signal.skillCount +
+            ' 个（' +
+            signal.path +
+            '），开工可调 project_context 查看。'
+        }
         hintedAgents.add(agent)
         const result = agent.inject({
           role: 'user',
-          content: [
-            {
-              type: 'text',
-              text:
-                '[dsh-mounts] ' +
-                stale +
-                '项目交接：' +
-                handoff.path +
-                (meta ? '（' + meta + '）' : '') +
-                preview +
-                '。开工前先 read 它；这里只是创建时快照，不是交接正文。',
-            },
-          ],
+          content: [{ type: 'text', text }],
           source: { kind: 'dsh-mounts' },
         })
         if (result && typeof result.catch === 'function') result.catch(() => {})
