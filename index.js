@@ -1451,10 +1451,13 @@ export function apply(ctx, config) {
               const anchor = sp.getSectionOrder('DEPLOYMENT_PERSONA_PREFIX')
               if (Number.isFinite(anchor)) {
                 const order = anchor + 1
-                const register = () => sp.section({ name: 'dsh-mounts:hint', order, text, interpolate: false })
-                if (typeof agentCtx.effect === 'function') agentCtx.effect(register)
-                else register()
+                const dispose = sp.section({ name: 'dsh-mounts:hint', order, text, interpolate: false })
                 registered = true
+                try {
+                  if (typeof agentCtx.effect === 'function') agentCtx.effect(() => dispose)
+                } catch {
+                  /* the section already landed; never send a second hint */
+                }
               }
             }
           } catch {
@@ -1490,12 +1493,7 @@ export function apply(ctx, config) {
             signal.path +
             '），开工可调 project_context 或读 MEMORY.md；这里不是正文。'
         } else {
-          text =
-            '[dsh-mounts] 本工作区有项目技能 ' +
-            signal.skillCount +
-            ' 个（' +
-            signal.path +
-            '），开工可调 project_context 查看。'
+          text = '[dsh-mounts] 本工作区有项目技能（' + signal.path + '），开工可调 project_context 查看。'
         }
         hintedAgents.add(agent)
         const result = agent.inject({

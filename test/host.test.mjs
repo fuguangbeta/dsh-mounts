@@ -275,7 +275,8 @@ test('agent/created hints project skills when no handoff or memory exists', asyn
   await handler({ agent, source: 'startup' })
   assert.equal(injected.length, 1)
   const text = injected[0].content[0].text
-  assert.match(text, /本工作区有项目技能 1 个/)
+  assert.match(text, /本工作区有项目技能（/)
+  assert.doesNotMatch(text, /项目技能 \d/)
   assert.match(text, /\.dsh[\\/]skills/)
   assert.doesNotMatch(text, /handoff\.md/)
 })
@@ -340,6 +341,32 @@ test('agent/created falls back to a user message without an agent ctx', async ()
   const text = injected[0].content[0].text
   assert.match(text, /本工作区有记忆库（1 个文件/)
   assert.match(text, /project_context/)
+})
+
+test('agent/created keeps only the system section when effect throws', async () => {
+  const handler = listeners.get('agent/created')
+  const sections = []
+  const injected = []
+  const sp = {
+    section: (definition) => {
+      sections.push(definition)
+      return () => {}
+    },
+    getSectionOrder: () => 0,
+  }
+  const agent = {
+    session: { header: { cwd: wsMemoryOnly } },
+    ctx: {
+      get: () => sp,
+      effect: () => {
+        throw new Error('effect unavailable')
+      },
+    },
+    inject: (payload) => injected.push(payload),
+  }
+  await handler({ agent, source: 'startup' })
+  assert.equal(sections.length, 1)
+  assert.equal(injected.length, 0, 'a landed section must not be followed by a fallback message')
 })
 
 test('agent/created falls back to a user message when the section throws', async () => {

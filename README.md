@@ -57,19 +57,21 @@ changes often, that is worth something.
 面板在打开时的状态：
 
 ```
-挂载清单  [只读 · 交接]  [刷新]
+挂载清单  [只读]  [搜索…]  [刷新]
 当前项目挂载了什么：全局与工作区的项目简报、记忆、技能与 MCP。
 
 ▸ 全局 (22)
-▸ 工作区  [my-app ▾]  7
+▸ 工作区  [选择 ▾]
 ```
 
 *The panel in its initial state.*
 
 默认两个根都收起；点开根，再点开子节。空子节展开后显示一行说明。
+标题行的搜索框常驻：输入即搜记忆文件、项目技能与项目 MCP；未选工作区时搜全部，选中后只搜该工作区。`/` 聚焦搜索框，↑↓ 选择、Enter 跳转，结果在树中定位并高亮。工作区下拉可按名称或路径过滤；选中后只展开工作区块，小节需要再点开。
 展开/收起、箭头、自绘下拉菜单与按钮统一使用 170ms 缓动；系统开启「减少动态效果」时全部关闭。
 
 *The panel in its initial state. Both roots start collapsed; open a root, then a sub-section. An empty one explains itself.
+The header search box stays visible: type to search memory files, project skills, and project MCP; with no workspace selected it searches all of them, with one selected it searches only that workspace. `/` focuses the box, ↑↓ move, Enter jumps, and the result is located in the tree and highlighted. The workspace dropdown filters by name or path; picking one opens only the workspace block, and each sub-section opens when clicked.
 Expand/collapse, arrows, the custom select menu, and buttons share one 170ms easing; all animation is disabled under "reduce motion".*
 
 ### 1.2 记忆展开至文件级 · *Memory Expanded to Files*
@@ -109,12 +111,12 @@ Dots use the selected workspace: with a live session there they use its registry
 工作区 → 项目简报 → 交接 可编辑，保存到 `.dsh-mounts/handoff.md`（≤20 KB）；旧 `.dsh/handoff.md` 仍可读取。
 `project_context` 是只读工具：新会话、接手项目或开工前调用一次即可，不要每轮调用。
 采用交接的项目可在自己的 `AGENTS.local.md` 加一行约定：若 `.dsh-mounts/handoff.md` 存在，开工先读它。
-新会话会自动注入一行交接提示（路径 + 摘要），不含交接正文。
+新会话的开工提示放在系统提示里，只含路径，不含摘要与正文；系统提示注册失败时，才用一条 user 消息兜底（含路径与摘要）。触发条件是工作区有交接、有记忆库或有项目技能，三者都没有则不提示。
 
 The Workspace → Project brief → Handoff row is editable; saves go to `.dsh-mounts/handoff.md` (≤20 KB). A legacy `.dsh/handoff.md` is still read.
 `project_context` is read-only: call it once at the start of a session or when taking over a project; do not call it every turn.
 Projects that adopt handoff can add one line to their own `AGENTS.local.md`: if `.dsh-mounts/handoff.md` exists, read it first.
-A new session automatically receives one handoff hint line (path + summary); the handoff body is not included.
+The new-session hint lives in the system prompt: path only, no summary and no body. Only when the system prompt cannot be registered does a user-message fallback appear (path + summary). It appears when the workspace has a handoff, a memory library, or project skills; otherwise it stays silent.
 
 ---
 
@@ -127,7 +129,7 @@ A new session automatically receives one handoff hint line (path + summary); the
 | L3 | 点击子节 | 该子节的条目 |
 | L4 | 点击条目 | 该条目的详情（路径、章节、来源、env、所属预设） |
 
-初始状态停留在 L1；工作区默认取当前，可在工作区标题下切换。
+初始状态停留在 L1；工作区不预选，用标题行的选择器挑选。
 
 | Level | Trigger | Content |
 |------|------|------|
@@ -136,7 +138,7 @@ A new session automatically receives one handoff hint line (path + summary); the
 | L3 | Clicking a sub-section | The entries of that sub-section |
 | L4 | Clicking an entry | That entry's details (path, sections, source, env, owning preset) |
 
-The initial state rests at L1; the workspace defaults to the current one and can be switched under the Workspace title.
+The initial state rests at L1; no workspace is preselected — pick one from the selector in the title row.
 
 ---
 
@@ -181,6 +183,7 @@ so the module is imported again.
 - `/api` 只接受 GET 与 HEAD，其余返回 405；`/handoff` 只接受 POST。响应带 `Cache-Control: no-store`。
 - 可选 `workspace` 查询参数（名称或绝对路径）用于选择展示的工作区；只读，不影响其他会话。
 - 不返回记忆正文：记忆库仅 `stat`，技能仅取 frontmatter 的 description；交接只返回路径、mtime 与摘要。
+- 系统提示里的开工提示与兜底 user 消息都只含路径，不含任何文件正文。
 
 「打开」不新建端点，使用 DSH 现有的 Session Remote，路径由 Host 侧复核。
 
@@ -193,6 +196,7 @@ so the module is imported again.
 - It accepts an optional `workspace` query parameter (name or absolute path) to select the displayed workspace; read-only, and it does not affect other sessions.
 - It returns no memory body: memory libraries are only `stat`-ed and skills contribute the
   frontmatter description; handoff returns only path, mtime, and a first-line summary.
+- Both the system-prompt hint and the fallback user message contain paths only; no file body is ever included.
 
 The "Open" action creates no endpoint; it uses DSH's existing Session Remote and the path is
 re-validated on the Host side.
@@ -218,6 +222,7 @@ re-validated on the Host side.
 | 没有设置界面 | DSH 配置无法写入 include 插入的行；记忆库位置固定 |
 | 记忆同时列规则与记忆文件 | 规则会被注入，记忆文件不会 |
 | 「打开」在部分环境下降级为「复制路径」 | 属预期行为，点击后完整路径进入剪贴板 |
+| HANDOVER.md 只做标注 | `HANDOVER.md`、`.dsh/HANDOVER.md`、`memory/HANDOVER.md` 只标「疑似交接（未确认）」，不参与开工提示 |
 
 | Limitation | Note |
 |------|------|
@@ -236,6 +241,7 @@ re-validated on the Host side.
 | No settings UI | DSH settings cannot write a row inserted by include; memory locations are fixed |
 | The memory group lists both rules and memory files | Rules are injected; memory files are not |
 | "Open" degrades to "Copy path" in some environments | Expected behaviour; clicking places the full path on the clipboard |
+| HANDOVER.md is annotated only | `HANDOVER.md`, `.dsh/HANDOVER.md`, and `memory/HANDOVER.md` are marked "suspected handoff (unconfirmed)" and never feed the hint |
 
 ---
 
